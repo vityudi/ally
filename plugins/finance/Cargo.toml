@@ -1,0 +1,12 @@
+[package]
+name = "ally-plugin-finance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Plugin: finance capability"
+
+[dependencies]
+ally-tools.workspace = true
+ally-security.workspace = true
+serde.workspace = true
+ally-plugins.workspace = true

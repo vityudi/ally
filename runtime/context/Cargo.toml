@@ -1,0 +1,10 @@
+[package]
+name = "ally-context"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Context Engine: assembles the compact context package sent to the model"
+
+[dependencies]
+ally-memory.workspace = true
+serde.workspace = true

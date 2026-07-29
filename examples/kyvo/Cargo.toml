@@ -1,0 +1,11 @@
+[package]
+name = "kyvo-example"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Example application built on top of the Ally SDK"
+publish = false
+
+[dependencies]
+ally-sdk.workspace = true
+tokio.workspace = true

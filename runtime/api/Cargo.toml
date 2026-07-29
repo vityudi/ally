@@ -1,0 +1,11 @@
+[package]
+name = "ally-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Local API surface (HTTP/WebSocket/IPC transports) exposed by the Runtime"
+
+[dependencies]
+ally-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true

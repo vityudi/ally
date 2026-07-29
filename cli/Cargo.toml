@@ -1,0 +1,10 @@
+[package]
+name = "ally-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally CLI: local command-line interface to the Ally Runtime"
+
+[dependencies]
+ally-sdk.workspace = true
+tokio.workspace = true

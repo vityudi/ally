@@ -1,0 +1,18 @@
+[package]
+name = "ally-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally SDK: the only interface applications use to talk to the Ally Runtime"
+
+[dependencies]
+ally-planner.workspace = true
+ally-memory.workspace = true
+ally-context.workspace = true
+ally-tools.workspace = true
+ally-models.workspace = true
+ally-plugins.workspace = true
+ally-events.workspace = true
+ally-storage.workspace = true
+ally-security.workspace = true
+thiserror.workspace = true

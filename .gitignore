@@ -1,0 +1,9 @@
+/target
+**/target
+.idea/
+.vscode/
+*.log
+
+# Local model weights are data, not source
+/models/*
+!/models/README.md

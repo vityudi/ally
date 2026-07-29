@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+    "runtime/planner",
+    "runtime/memory",
+    "runtime/context",
+    "runtime/tools",
+    "runtime/models",
+    "runtime/plugins",
+    "runtime/scheduler",
+    "runtime/events",
+    "runtime/storage",
+    "runtime/security",
+    "runtime/api",
+    "sdk",
+    "cli",
+    "plugins/finance",
+    "plugins/calendar",
+    "plugins/health",
+    "plugins/shopping",
+    "plugins/travel",
+    "plugins/knowledge",
+    "plugins/home",
+    "examples/kyvo",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Ally Framework Contributors"]
+repository = "https://github.com/ally-framework/ally-framework"
+
+[workspace.dependencies]
+ally-planner = { path = "runtime/planner" }
+ally-memory = { path = "runtime/memory" }
+ally-context = { path = "runtime/context" }
+ally-tools = { path = "runtime/tools" }
+ally-models = { path = "runtime/models" }
+ally-plugins = { path = "runtime/plugins" }
+ally-scheduler = { path = "runtime/scheduler" }
+ally-events = { path = "runtime/events" }
+ally-storage = { path = "runtime/storage" }
+ally-security = { path = "runtime/security" }
+ally-api = { path = "runtime/api" }
+ally-sdk = { path = "sdk" }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

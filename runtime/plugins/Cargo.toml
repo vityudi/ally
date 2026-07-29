@@ -1,0 +1,11 @@
+[package]
+name = "ally-plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Plugin Manager: discovery, permissions and lifecycle of plugins"
+
+[dependencies]
+ally-tools.workspace = true
+ally-security.workspace = true
+thiserror.workspace = true

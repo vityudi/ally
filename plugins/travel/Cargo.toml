@@ -1,0 +1,12 @@
+[package]
+name = "ally-plugin-travel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Plugin: travel capability"
+
+[dependencies]
+ally-tools.workspace = true
+ally-security.workspace = true
+serde.workspace = true
+ally-plugins.workspace = true

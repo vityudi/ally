@@ -1,0 +1,11 @@
+[package]
+name = "ally-planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Planner: transforms user intent into deterministic execution plans"
+
+[dependencies]
+ally-events.workspace = true
+thiserror.workspace = true
+serde.workspace = true

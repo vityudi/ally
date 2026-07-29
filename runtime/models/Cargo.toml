@@ -1,0 +1,11 @@
+[package]
+name = "ally-models"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Model Runtime: abstracts local and remote inference backends"
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true
+serde.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "ally-scheduler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Scheduler: autonomous and time-based execution"
+
+[dependencies]
+ally-events.workspace = true
+tokio.workspace = true

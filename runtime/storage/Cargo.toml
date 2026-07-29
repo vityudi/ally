@@ -1,0 +1,11 @@
+[package]
+name = "ally-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ally Runtime - Storage Layer: pluggable persistence abstraction"
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true
+serde.workspace = true
