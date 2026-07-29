@@ -1,21 +1,38 @@
+<div align="center">
+
 # Ally Framework
 
-> An Open Personal Intelligence Framework — local-first, model-agnostic,
-> privacy by default.
+**An Open Personal Intelligence Framework — local-first, model-agnostic, privacy by default.**
+
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-stable%20%7C%20edition%202021-orange?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Build](https://img.shields.io/badge/build-cargo%20workspace-informational?logo=rust&logoColor=white)](#building)
+[![Tokio](https://img.shields.io/badge/async-tokio-blueviolet?logo=rust&logoColor=white)](https://tokio.rs)
+[![Serde](https://img.shields.io/badge/serialization-serde-9cf?logo=rust&logoColor=white)](https://serde.rs)
+[![Status](https://img.shields.io/badge/status-early%20scaffold-yellow)](#status)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+</div>
+
+---
 
 Ally is not another chatbot or LLM wrapper. It is a **Personal Intelligence
 Runtime**: the Language Model sits at the *end* of the pipeline, generating
 language, while deterministic Runtime modules handle planning, memory,
 context assembly, tool execution, permissions and storage.
 
+## 📖 Read first
+
 Read the project's constitution before contributing:
 
-- [`docs/MANIFESTO.md`](docs/MANIFESTO.md) — what we believe and why
-- [`docs/FOUNDATION.md`](docs/FOUNDATION.md) — vision and core principles
-- [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) — the 25 non-negotiable engineering principles
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — technical architecture spec
+| Document | Purpose |
+|---|---|
+| [`docs/MANIFESTO.md`](docs/MANIFESTO.md) | What we believe and why |
+| [`docs/FOUNDATION.md`](docs/FOUNDATION.md) | Vision and core principles |
+| [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) | The 25 non-negotiable engineering principles |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical architecture spec |
 
-## Repository layout
+## 🗂️ Repository layout
 
 ```
 ally-framework/
@@ -32,17 +49,21 @@ ally-framework/
   tools/         # Developer scripts for working on this repo
 ```
 
-## Status
+## 🚧 Status
 
-Early scaffold (Phase 1: Runtime foundation). Every crate currently exposes
-minimal stubs matching the responsibilities described in
+Early scaffold (**Phase 1: Runtime foundation**). Every crate currently
+exposes minimal stubs matching the responsibilities described in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — no real planning, memory or
 inference logic is implemented yet.
 
-## Building
+## 🛠️ Building
 
 ```sh
 cargo build --workspace
 ```
 
 Requires a recent stable Rust toolchain (edition 2021).
+
+## 📜 License
+
+Licensed under the [Apache License 2.0](LICENSE).
