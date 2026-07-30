@@ -328,7 +328,21 @@ impl Ally {
                         grounding.push_str(&format!("[mem:{}] {}\n", memory.id, memory.content));
                     }
 
-                    request.messages.insert(0, ChatMessage::system(grounding));
+                    // Merged into the caller's existing leading system
+                    // message rather than inserted as a second one:
+                    // verified live that with two separate system messages,
+                    // qwen2.5:1.5b (via Ollama) silently ignored this
+                    // grounding entirely and answered from the *other*
+                    // system message's instructions instead — the retrieval
+                    // and event above fired correctly, but the final answer
+                    // acted as if it hadn't. A single combined system
+                    // message fixes it.
+                    match request.messages.first_mut() {
+                        Some(first) if first.role == "system" => {
+                            first.content = format!("{grounding}\n{}", first.content);
+                        }
+                        _ => request.messages.insert(0, ChatMessage::system(grounding)),
+                    }
                     self.events.publish(Event::MemoryRetrieved { memory_ids, query });
                 }
             }
@@ -392,8 +406,8 @@ impl Ally {
                     "The user said this to a personal assistant. If it STATES a durable \
                      personal fact about them (name, preference, where they live, a \
                      restriction, etc.), reply with that fact as one short third-person \
-                     sentence. If it's a question, a command, or doesn't state a new fact, \
-                     reply with exactly: none",
+                     sentence, in the SAME language the user wrote in. If it's a question, \
+                     a command, or doesn't state a new fact, reply with exactly: none",
                 ),
                 ChatMessage::user(message),
             ],
