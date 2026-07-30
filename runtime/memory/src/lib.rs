@@ -4,7 +4,16 @@
 //! Records are persisted through the abstract [`Storage`] trait (SQLite by
 //! default, see `runtime/storage`). Each [`MemoryKind`] keeps its own id
 //! index in storage, so `retrieve` only loads the records that actually
-//! match instead of scanning every stored memory.
+//! match instead of scanning every stored memory. Similarity search itself
+//! is delegated to a [`VectorIndex`] (see `vector` module) rather than done
+//! inline, so the search backend can be swapped independently of record
+//! storage.
+
+mod retriever;
+mod vector;
+
+pub use retriever::{GroundedMemory, Retriever, SemanticEpisodicRetriever};
+pub use vector::{BruteForceVectorIndex, VectorIndex};
 
 use ally_events::{Event, EventBus};
 use ally_storage::Storage;
@@ -56,15 +65,26 @@ pub enum MemoryError {
 
 pub struct MemoryEngine {
     storage: Arc<dyn Storage>,
+    vector_index: Arc<dyn VectorIndex>,
 }
 
 impl MemoryEngine {
+    /// Uses [`BruteForceVectorIndex`] (over the same `storage`) for
+    /// similarity search. Use [`MemoryEngine::with_vector_index`] to plug
+    /// in a different backend (e.g. a real vector database).
     pub fn new(storage: Arc<dyn Storage>) -> Self {
-        Self { storage }
+        let vector_index = Arc::new(BruteForceVectorIndex::new(storage.clone()));
+        Self::with_vector_index(storage, vector_index)
     }
 
-    /// Persists a record and adds it to its kind's index. Emits
-    /// `MemoryCreated` once the write succeeds.
+    pub fn with_vector_index(storage: Arc<dyn Storage>, vector_index: Arc<dyn VectorIndex>) -> Self {
+        Self { storage, vector_index }
+    }
+
+    /// Persists a record and adds it to its kind's index. If the record
+    /// carries an embedding, also upserts it into the vector index so
+    /// `retrieve_relevant` can find it. Emits `MemoryCreated` once the
+    /// write succeeds.
     pub async fn store(&self, record: MemoryRecord, events: &EventBus) -> Result<(), MemoryError> {
         let bytes = serde_json::to_vec(&record)?;
         self.storage.set(&record_key(&record.id), bytes).await?;
@@ -74,6 +94,10 @@ impl MemoryEngine {
         if !ids.contains(&record.id) {
             ids.push(record.id.clone());
             self.storage.set(&index_key, serde_json::to_vec(&ids)?).await?;
+        }
+
+        if let Some(embedding) = record.embedding.clone() {
+            self.vector_index.upsert(&record.id, record.kind, embedding).await?;
         }
 
         events.publish(Event::MemoryCreated {
@@ -102,9 +126,16 @@ impl MemoryEngine {
         }
     }
 
-    /// Ranks records of `kinds` by cosine similarity to `query_embedding`,
-    /// dropping anything below `min_similarity` and returning at most
-    /// `top_k`, highest similarity first.
+    async fn load_record(&self, id: &str) -> Result<Option<MemoryRecord>, MemoryError> {
+        match self.storage.get(&record_key(id)).await? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Ranks records of `kinds` by similarity to `query_embedding` via the
+    /// configured [`VectorIndex`], dropping anything below `min_similarity`
+    /// and returning at most `top_k`, highest similarity first.
     ///
     /// `min_similarity` is the anti-hallucination guard: a weak match is
     /// worse than no match at all, since handing the model a barely
@@ -118,42 +149,19 @@ impl MemoryEngine {
         top_k: usize,
         min_similarity: f32,
     ) -> Result<Vec<(MemoryRecord, f32)>, MemoryError> {
-        let mut scored = Vec::new();
-        for &kind in kinds {
-            for record in self.retrieve(kind).await? {
-                let Some(embedding) = record.embedding.as_deref() else {
-                    continue;
-                };
-                let similarity = cosine_similarity(query_embedding, embedding);
-                if similarity >= min_similarity {
-                    scored.push((record, similarity));
-                }
+        let hits = self
+            .vector_index
+            .search(kinds, query_embedding, top_k, min_similarity)
+            .await?;
+
+        let mut scored = Vec::with_capacity(hits.len());
+        for (id, similarity) in hits {
+            if let Some(record) = self.load_record(&id).await? {
+                scored.push((record, similarity));
             }
         }
-
-        scored.sort_by(|(_, a), (_, b)| b.total_cmp(a));
-        scored.truncate(top_k);
         Ok(scored)
     }
-}
-
-/// Cosine similarity between two vectors. Returns `0.0` for mismatched or
-/// zero-length inputs rather than panicking — a malformed/empty embedding
-/// should just never match, not crash retrieval.
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-
-    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 0.0;
-    }
-
-    dot / (norm_a * norm_b)
 }
 
 fn record_key(id: &str) -> String {

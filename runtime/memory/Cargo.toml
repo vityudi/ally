@@ -8,6 +8,7 @@ description = "Ally Runtime - Memory Engine: episodic, semantic and procedural m
 [dependencies]
 ally-events.workspace = true
 ally-storage.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

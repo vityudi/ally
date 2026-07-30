@@ -5,7 +5,7 @@
 
 use ally_context::ContextEngine;
 use ally_events::EventBus;
-use ally_memory::{MemoryEngine, MemoryError};
+use ally_memory::{MemoryEngine, MemoryError, SemanticEpisodicRetriever};
 use ally_models::{LlamaCppBackend, ModelBackend, ModelError};
 use ally_planner::Planner;
 use ally_plugins::PluginManager;
@@ -20,7 +20,7 @@ use thiserror::Error;
 // never depend on a `runtime/*` crate directly — see the module doc above.
 pub use ally_context::ContextPackage;
 pub use ally_events::{Event, EventHandler, LoggingHandler};
-pub use ally_memory::{MemoryKind, MemoryRecord};
+pub use ally_memory::{MemoryKind, MemoryRecord, Retriever};
 pub use ally_models::{ChatMessage, ChatRequest, ChatResponse, ToolSpec};
 pub use ally_planner::{Intent, Plan};
 pub use ally_plugins::{Plugin, PluginError};
@@ -48,6 +48,23 @@ const MEMORIES_PER_TURN: usize = 5;
 /// invites the model to answer as if a barely-related memory were the
 /// fact being asked about, instead of admitting it doesn't know.
 const MIN_MEMORY_SIMILARITY: f32 = 0.5;
+
+/// Merged into the leading system message on every `chat` turn, whether or
+/// not any memory was retrieved. This is a Runtime-level guarantee (see
+/// the grounding principle: answer from retrieved data, never guess), not
+/// an application prompt choice — an app's own system prompt (e.g.
+/// "You are Ally, a personal assistant") never mentions that the person
+/// talking to it is a separate individual it starts out knowing nothing
+/// about, and a small model left to fill that gap on its own has been
+/// observed conflating "you" (the user) with itself. Verified live against
+/// qwen2.5:1.5b that adding this one extra sentence does not break
+/// trigger-matched tool routing (which returns before this runs) or
+/// model-decided tool calls (which still fire normally with it present).
+const IDENTITY_GUARDRAIL: &str = "You are the assistant; the person you're \
+    talking to is a separate individual, not you. Never assume their name, \
+    identity or other facts about them unless stated as a fact below or \
+    earlier in this conversation — if you don't know, say so instead of \
+    guessing.";
 
 /// Failure from [`Ally::chat`]: either the Model Runtime backend failed,
 /// or a tool it requested failed (including a denied permission).
@@ -84,7 +101,8 @@ pub enum RememberError {
 /// without breaking application code built against this crate.
 pub struct Ally {
     planner: Planner,
-    memory: MemoryEngine,
+    memory: Arc<MemoryEngine>,
+    retriever: Arc<dyn Retriever>,
     context: ContextEngine,
     tools: ToolOrchestrator,
     plugins: PluginManager,
@@ -123,9 +141,16 @@ impl Ally {
     /// `chat_stream`, `embed`, and therefore `remember`/`recall_relevant`
     /// too), not here — see `ally_models::LlamaCppBackend::lazy_default`.
     pub fn with_storage(storage: Arc<dyn Storage>) -> Self {
+        let memory = Arc::new(MemoryEngine::new(storage));
+        let retriever = Arc::new(SemanticEpisodicRetriever::new(
+            memory.clone(),
+            MEMORIES_PER_TURN,
+            MIN_MEMORY_SIMILARITY,
+        ));
         Self {
             planner: Planner::new(),
-            memory: MemoryEngine::new(storage),
+            memory,
+            retriever,
             context: ContextEngine::new(),
             tools: ToolOrchestrator::new(),
             plugins: PluginManager::new(),
@@ -140,6 +165,14 @@ impl Ally {
     /// `ModelBackend` implementation.
     pub fn with_model(&mut self, model: Arc<dyn ModelBackend>) {
         self.model = model;
+    }
+
+    /// Swaps the grounding retrieval policy used by [`Ally::chat`] — e.g.
+    /// to also search `Procedural` memories, or to change how many
+    /// memories are pulled in per turn. Defaults to
+    /// [`SemanticEpisodicRetriever`].
+    pub fn with_retriever(&mut self, retriever: Arc<dyn Retriever>) {
+        self.retriever = retriever;
     }
 
     /// Which specific model the current backend talks to (e.g. a GGUF
@@ -271,13 +304,16 @@ impl Ally {
     /// required arguments couldn't be extracted — this falls through to
     /// the regular model-driven flow below.
     ///
-    /// Otherwise, this embeds the latest user message and retrieves the
-    /// most relevant memories (`recall_relevant`), then prepends a
-    /// grounding system message instructing the model to answer only from
-    /// those facts and admit it doesn't know rather than guess — see
-    /// `MIN_MEMORY_SIMILARITY`. A `MemoryRetrieved` event is published
-    /// with the memory ids actually used, so a wrong answer can be traced
-    /// back to what was (or wasn't) retrieved for it.
+    /// Otherwise, this embeds the latest user message and asks the
+    /// configured [`Retriever`] for relevant memories, then merges
+    /// [`IDENTITY_GUARDRAIL`] — plus, if any memories matched, a grounding
+    /// block listing them — into the leading system message. The guardrail
+    /// is merged on every turn, not just when memories are found: without
+    /// it, a small model reminded only that "you are Ally" has been
+    /// observed conflating the user asking a question with Ally itself
+    /// instead of admitting it doesn't know them yet. A `MemoryRetrieved`
+    /// event is published with the memory ids actually used, so a wrong
+    /// answer can be traced back to what was (or wasn't) retrieved for it.
     ///
     /// The model never executes a tool itself: when it requests one
     /// (`ChatResponse::tool_calls`), this dispatches the call through the
@@ -317,50 +353,54 @@ impl Ally {
         if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
             let query = query.content.clone();
             let query_embedding = self.model.embed(&query).await?;
-            let scored = self
-                .memory
-                .retrieve_relevant(
-                    &[MemoryKind::Semantic, MemoryKind::Episodic],
-                    &query_embedding,
-                    MEMORIES_PER_TURN,
-                    MIN_MEMORY_SIMILARITY,
-                )
-                .await?;
+            let grounded = self.retriever.retrieve(&query_embedding).await?;
 
-            if !scored.is_empty() {
-                let candidates: Vec<MemoryRecord> = scored.into_iter().map(|(r, _)| r).collect();
+            let mut grounding = String::from(IDENTITY_GUARDRAIL);
+            let mut memory_ids = Vec::new();
+
+            if !grounded.is_empty() {
+                let candidates: Vec<MemoryRecord> = grounded
+                    .into_iter()
+                    .map(|g| MemoryRecord {
+                        id: g.id,
+                        kind: g.kind,
+                        content: g.content,
+                        embedding: None,
+                    })
+                    .collect();
                 let package = self.context.assemble(String::new(), Vec::new(), &candidates);
 
                 if !package.relevant_memories.is_empty() {
-                    let memory_ids: Vec<String> =
-                        package.relevant_memories.iter().map(|m| m.id.clone()).collect();
+                    memory_ids = package.relevant_memories.iter().map(|m| m.id.clone()).collect();
 
-                    let mut grounding = String::from(
-                        "Use ONLY the facts below to answer questions about the user. \
+                    grounding.push_str(
+                        "\n\nUse ONLY the facts below to answer questions about the user. \
                          If the answer isn't in these facts, say you don't have that \
                          information — never guess.\n\n",
                     );
                     for memory in &package.relevant_memories {
                         grounding.push_str(&format!("[mem:{}] {}\n", memory.id, memory.content));
                     }
-
-                    // Merged into the caller's existing leading system
-                    // message rather than inserted as a second one:
-                    // verified live that with two separate system messages,
-                    // qwen2.5:1.5b (via Ollama) silently ignored this
-                    // grounding entirely and answered from the *other*
-                    // system message's instructions instead — the retrieval
-                    // and event above fired correctly, but the final answer
-                    // acted as if it hadn't. A single combined system
-                    // message fixes it.
-                    match request.messages.first_mut() {
-                        Some(first) if first.role == "system" => {
-                            first.content = format!("{grounding}\n{}", first.content);
-                        }
-                        _ => request.messages.insert(0, ChatMessage::system(grounding)),
-                    }
-                    self.events.publish(Event::MemoryRetrieved { memory_ids, query });
                 }
+            }
+
+            // Merged into the caller's existing leading system message
+            // rather than inserted as a second one: verified live that
+            // with two separate system messages, qwen2.5:1.5b (via Ollama)
+            // silently ignored this grounding entirely and answered from
+            // the *other* system message's instructions instead — the
+            // retrieval and event above fired correctly, but the final
+            // answer acted as if it hadn't. A single combined system
+            // message fixes it. Always merged (even with no memories
+            // found) since the identity guardrail applies to every turn.
+            match request.messages.first_mut() {
+                Some(first) if first.role == "system" => {
+                    first.content = format!("{grounding}\n{}", first.content);
+                }
+                _ => request.messages.insert(0, ChatMessage::system(grounding)),
+            }
+            if !memory_ids.is_empty() {
+                self.events.publish(Event::MemoryRetrieved { memory_ids, query });
             }
         }
 
