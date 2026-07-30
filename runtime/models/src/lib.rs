@@ -88,6 +88,14 @@ pub struct ChatResponse {
 pub trait ModelBackend: Send + Sync {
     fn name(&self) -> &str;
 
+    /// Which specific model this backend talks to (e.g. a GGUF filename or
+    /// an Ollama model tag) — distinct from `name()`, which only identifies
+    /// the *engine*. Defaults to `name()` for backends with nothing more
+    /// specific to report.
+    fn model_id(&self) -> String {
+        self.name().to_string()
+    }
+
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ModelError>;
 
     /// Same contract as `chat`, but invokes `on_token` as content streams

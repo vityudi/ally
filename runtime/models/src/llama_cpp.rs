@@ -66,7 +66,16 @@ const MAX_NEW_TOKENS: usize = 1024;
 
 fn backend() -> &'static LlamaBackend {
     static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
-    BACKEND.get_or_init(|| LlamaBackend::init().expect("llama.cpp backend failed to initialize"))
+    BACKEND.get_or_init(|| {
+        // Without this, llama.cpp/ggml print their own raw model-load /
+        // tensor / sampler / timing dump straight to stderr on every first
+        // call — dozens of lines a chat REPL user has no use for. There's
+        // no tracing subscriber installed, so routing them "to tracing"
+        // would just drop them; `with_logs_enabled(false)` suppresses the
+        // native callback outright instead.
+        llama_cpp_2::send_logs_to_tracing(llama_cpp_2::LogOptions::default().with_logs_enabled(false));
+        LlamaBackend::init().expect("llama.cpp backend failed to initialize")
+    })
 }
 
 #[self_referencing]
@@ -127,6 +136,16 @@ enum GgufSource {
 }
 
 impl GgufSource {
+    /// Human-readable identifier for startup messages — the GGUF filename
+    /// either way, without needing to resolve (and thus possibly download)
+    /// the file first.
+    fn label(&self) -> String {
+        match self {
+            GgufSource::Path(path) => path.display().to_string(),
+            GgufSource::Download { pinned, .. } => pinned.file.to_string(),
+        }
+    }
+
     async fn resolve(&self) -> Result<PathBuf, ModelError> {
         match self {
             GgufSource::Path(path) => Ok(path.clone()),
@@ -463,6 +482,10 @@ fn generate(
 impl ModelBackend for LlamaCppBackend {
     fn name(&self) -> &str {
         "llama-cpp"
+    }
+
+    fn model_id(&self) -> String {
+        self.chat_source.label()
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ModelError> {

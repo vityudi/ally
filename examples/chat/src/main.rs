@@ -37,6 +37,7 @@ async fn main() {
         .expect("finance plugin should install cleanly");
 
     println!("ally-chat — installed plugins: {}", ally.installed_plugins().count());
+    println!("modelo: {}", ally.model_id());
     println!("Digite sua mensagem e aperte Enter. Digite 'sair' para encerrar.\n");
 
     // Deliberately short: a stacked, multi-clause rulebook reliably makes

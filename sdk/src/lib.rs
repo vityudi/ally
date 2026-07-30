@@ -142,6 +142,14 @@ impl Ally {
         self.model = model;
     }
 
+    /// Which specific model the current backend talks to (e.g. a GGUF
+    /// filename or an Ollama model tag) — handy for a startup banner so
+    /// the user knows what they're chatting with before the first message
+    /// triggers the (possibly slow) load/download.
+    pub fn model_id(&self) -> String {
+        self.model.model_id()
+    }
+
     /// Subscribes an additional listener to every Runtime event
     /// (`ConversationStarted`, `MemoryCreated`, `ToolExecuted`, ...).
     pub fn on_event(&mut self, handler: Box<dyn EventHandler>) {

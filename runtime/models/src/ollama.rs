@@ -183,6 +183,10 @@ impl ModelBackend for OllamaBackend {
         "ollama"
     }
 
+    fn model_id(&self) -> String {
+        self.model.clone()
+    }
+
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ModelError> {
         let body = OllamaChatRequest {
             model: &self.model,
