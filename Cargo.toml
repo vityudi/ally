@@ -22,6 +22,7 @@ members = [
     "plugins/knowledge",
     "plugins/home",
     "examples/kyvo",
+    "examples/chat",
     "benchmarks/model-latency",
     "benchmarks/eval-harness",
     "tools/dataset-gen",

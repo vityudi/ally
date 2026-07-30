@@ -24,6 +24,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ally-chat"
+version = "0.1.0"
+dependencies = [
+ "ally-plugin-finance",
+ "ally-scheduler",
+ "ally-sdk",
+ "tokio",
+]
+
+[[package]]
 name = "ally-cli"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,13 @@
+[package]
+name = "ally-chat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Interactive REPL to converse with the Ally SDK's chat loop"
+publish = false
+
+[dependencies]
+ally-sdk.workspace = true
+ally-scheduler.workspace = true
+ally-plugin-finance = { path = "../../plugins/finance" }
+tokio.workspace = true

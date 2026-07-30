@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex};
 async fn main() {
     let mut ally = Ally::new();
     ally.on_event(Box::new(LoggingHandler));
-    ally.grant_permissions(vec![Permission::Write]);
+    ally.grant_permissions(vec![Permission::Read, Permission::Write]);
 
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
     ally.install_plugin(Box::new(ally_plugin_finance::FinancePlugin::new(scheduler)))

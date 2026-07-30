@@ -94,7 +94,7 @@ async fn main() {
 async fn run_model(model: &str, examples: &[DatasetExample]) -> Option<ModelReport> {
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
     let mut ally = Ally::new();
-    ally.grant_permissions(vec![Permission::Write]);
+    ally.grant_permissions(vec![Permission::Read, Permission::Write]);
     ally.install_plugin(Box::new(FinancePlugin::new(scheduler)))
         .expect("finance plugin should install cleanly");
     ally.with_model(Arc::new(OllamaBackend::new(model)));

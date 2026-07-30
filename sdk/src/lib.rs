@@ -204,8 +204,16 @@ impl Ally {
         while !response.tool_calls.is_empty() && rounds < MAX_TOOL_ROUNDS {
             rounds += 1;
             for call in &response.tool_calls {
-                let result = self.execute_tool(&call.name, call.arguments.clone()).await?;
-                request.messages.push(ChatMessage::tool(result.to_string()));
+                // A tool failure (bad/missing arguments, denied permission)
+                // is fed back to the model as a tool result rather than
+                // aborting the turn, so it gets a chance to recover — e.g.
+                // ask the user for the missing field — instead of the whole
+                // `chat` call failing as if the backend were unreachable.
+                let message = match self.execute_tool(&call.name, call.arguments.clone()).await {
+                    Ok(result) => ChatMessage::tool(result.to_string()),
+                    Err(err) => ChatMessage::tool(format!("error: {err}")),
+                };
+                request.messages.push(message);
             }
             response = self.model.chat(request.clone()).await?;
         }
