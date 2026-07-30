@@ -37,6 +37,15 @@ const DEFAULT_MODEL: &str = "qwen2.5:1.5b";
 /// turn, so a model that keeps requesting tools can't loop forever.
 const MAX_TOOL_ROUNDS: usize = 4;
 
+/// How many memories `Ally::chat` pulls into the grounding message per turn.
+const MEMORIES_PER_TURN: usize = 5;
+
+/// Minimum cosine similarity a memory must clear to be handed to the model
+/// as grounding for an answer. A weak match is worse than no match: it
+/// invites the model to answer as if a barely-related memory were the
+/// fact being asked about, instead of admitting it doesn't know.
+const MIN_MEMORY_SIMILARITY: f32 = 0.5;
+
 /// Failure from [`Ally::chat`]: either the Model Runtime backend failed,
 /// or a tool it requested failed (including a denied permission).
 #[derive(Debug, Error)]
@@ -47,6 +56,22 @@ pub enum ChatError {
     /// A tool call the model requested failed to execute.
     #[error(transparent)]
     Tool(#[from] ToolError),
+    /// Memory retrieval failed while assembling grounding for this turn.
+    #[error(transparent)]
+    Memory(#[from] MemoryError),
+}
+
+/// Failure from [`Ally::remember`] or [`Ally::recall_relevant`]: embedding
+/// text requires the Model Runtime backend, so these can now fail for the
+/// same reasons a chat call can, in addition to storage failures.
+#[derive(Debug, Error)]
+pub enum RememberError {
+    /// The Model Runtime backend failed to produce an embedding.
+    #[error(transparent)]
+    Model(#[from] ModelError),
+    /// The Memory Engine failed to persist or read back a record.
+    #[error(transparent)]
+    Memory(#[from] MemoryError),
 }
 
 /// The single entry point applications use to talk to the Ally Runtime.
@@ -132,14 +157,37 @@ impl Ally {
         self.events.publish(Event::ConversationEnded { conversation_id });
     }
 
-    /// Persists a memory record and emits `MemoryCreated`.
-    pub async fn remember(&self, record: MemoryRecord) -> Result<(), MemoryError> {
-        self.memory.store(record, &self.events).await
+    /// Persists a memory record and emits `MemoryCreated`. If `record`
+    /// doesn't already carry an embedding, one is computed from its
+    /// `content` via the configured Model Runtime backend first, so later
+    /// `recall_relevant` calls can find it.
+    pub async fn remember(&self, mut record: MemoryRecord) -> Result<(), RememberError> {
+        if record.embedding.is_none() {
+            record.embedding = Some(self.model.embed(&record.content).await?);
+        }
+        self.memory.store(record, &self.events).await?;
+        Ok(())
     }
 
     /// Reads back memories of a given kind.
     pub async fn recall(&self, kind: MemoryKind) -> Result<Vec<MemoryRecord>, MemoryError> {
         self.memory.retrieve(kind).await
+    }
+
+    /// Embeds `query` and returns the memories of `kinds` most relevant to
+    /// it, most similar first, each paired with its similarity score.
+    /// Memories below [`MIN_MEMORY_SIMILARITY`] are never returned.
+    pub async fn recall_relevant(
+        &self,
+        kinds: &[MemoryKind],
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<(MemoryRecord, f32)>, RememberError> {
+        let query_embedding = self.model.embed(query).await?;
+        Ok(self
+            .memory
+            .retrieve_relevant(kinds, &query_embedding, top_k, MIN_MEMORY_SIMILARITY)
+            .await?)
     }
 
     /// Installs a plugin: registers every tool it exposes with the Tool
@@ -191,13 +239,57 @@ impl Ally {
             .collect()
     }
 
-    /// Sends a chat turn to the configured Model Runtime. The model never
-    /// executes a tool itself: when it requests one (`ChatResponse::tool_calls`),
-    /// this dispatches the call through the permission-checked Tool
-    /// Orchestrator, feeds the result back as a `tool` message, and asks
-    /// the model again — up to `MAX_TOOL_ROUNDS` times — before returning
-    /// the final response.
+    /// Sends a chat turn to the configured Model Runtime. Before calling
+    /// the model, this embeds the latest user message and retrieves the
+    /// most relevant memories (`recall_relevant`), then prepends a
+    /// grounding system message instructing the model to answer only from
+    /// those facts and admit it doesn't know rather than guess — see
+    /// `MIN_MEMORY_SIMILARITY`. A `MemoryRetrieved` event is published
+    /// with the memory ids actually used, so a wrong answer can be traced
+    /// back to what was (or wasn't) retrieved for it.
+    ///
+    /// The model never executes a tool itself: when it requests one
+    /// (`ChatResponse::tool_calls`), this dispatches the call through the
+    /// permission-checked Tool Orchestrator, feeds the result back as a
+    /// `tool` message, and asks the model again — up to `MAX_TOOL_ROUNDS`
+    /// times — before returning the final response.
     pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse, ChatError> {
+        if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
+            let query = query.content.clone();
+            let query_embedding = self.model.embed(&query).await?;
+            let scored = self
+                .memory
+                .retrieve_relevant(
+                    &[MemoryKind::Semantic, MemoryKind::Episodic],
+                    &query_embedding,
+                    MEMORIES_PER_TURN,
+                    MIN_MEMORY_SIMILARITY,
+                )
+                .await?;
+
+            if !scored.is_empty() {
+                let candidates: Vec<MemoryRecord> = scored.into_iter().map(|(r, _)| r).collect();
+                let package = self.context.assemble(String::new(), Vec::new(), &candidates);
+
+                if !package.relevant_memories.is_empty() {
+                    let memory_ids: Vec<String> =
+                        package.relevant_memories.iter().map(|m| m.id.clone()).collect();
+
+                    let mut grounding = String::from(
+                        "Use ONLY the facts below to answer questions about the user. \
+                         If the answer isn't in these facts, say you don't have that \
+                         information — never guess.\n\n",
+                    );
+                    for memory in &package.relevant_memories {
+                        grounding.push_str(&format!("[mem:{}] {}\n", memory.id, memory.content));
+                    }
+
+                    request.messages.insert(0, ChatMessage::system(grounding));
+                    self.events.publish(Event::MemoryRetrieved { memory_ids, query });
+                }
+            }
+        }
+
         let mut response = self.model.chat(request.clone()).await?;
 
         let mut rounds = 0;

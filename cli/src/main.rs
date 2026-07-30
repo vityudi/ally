@@ -16,6 +16,7 @@ async fn main() {
         id: "note-1".to_string(),
         kind: MemoryKind::Semantic,
         content: "user prefers concise answers".to_string(),
+        embedding: None,
     })
     .await
     .expect("failed to store memory");

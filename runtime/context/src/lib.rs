@@ -7,7 +7,7 @@ use ally_memory::MemoryRecord;
 pub struct ContextPackage {
     pub conversation_summary: String,
     pub recent_messages: Vec<String>,
-    pub relevant_memories: Vec<String>,
+    pub relevant_memories: Vec<MemoryRecord>,
     pub tool_results: Vec<String>,
 }
 
@@ -52,9 +52,9 @@ impl ContextEngine {
             .max_tokens
             .saturating_sub(approx_tokens(&conversation_summary));
 
-        let recent_messages = take_within_budget(recent_messages, &mut budget);
-        let memory_contents = memories.iter().map(|m| m.content.clone()).collect();
-        let relevant_memories = take_within_budget(memory_contents, &mut budget);
+        let recent_messages = take_within_budget(recent_messages, &mut budget, |m| approx_tokens(m));
+        let relevant_memories =
+            take_within_budget(memories.to_vec(), &mut budget, |m| approx_tokens(&m.content));
 
         ContextPackage {
             conversation_summary,
@@ -72,10 +72,10 @@ fn approx_tokens(text: &str) -> usize {
     (text.len() / 4).max(1)
 }
 
-fn take_within_budget(items: Vec<String>, budget: &mut usize) -> Vec<String> {
+fn take_within_budget<T>(items: Vec<T>, budget: &mut usize, cost_of: impl Fn(&T) -> usize) -> Vec<T> {
     let mut kept = Vec::new();
     for item in items {
-        let cost = approx_tokens(&item);
+        let cost = cost_of(&item);
         if cost > *budget {
             break;
         }

@@ -146,6 +146,10 @@ async fn run_model(model: &str, examples: &[DatasetExample]) -> Option<ModelRepo
                 eprintln!("  example {} failed: {err}", example.id);
                 return None;
             }
+            Err(ChatError::Memory(err)) => {
+                eprintln!("  example {} failed: {err}", example.id);
+                return None;
+            }
         }
 
         report.latencies_ms.push(elapsed_ms);

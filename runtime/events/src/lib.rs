@@ -7,6 +7,7 @@ pub enum Event {
     ConversationStarted { conversation_id: String },
     ConversationEnded { conversation_id: String },
     MemoryCreated { memory_id: String },
+    MemoryRetrieved { memory_ids: Vec<String>, query: String },
     ToolExecuted { tool_name: String },
     PluginInstalled { plugin_name: String },
     ReminderCreated { reminder_id: String },
