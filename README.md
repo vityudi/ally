@@ -91,6 +91,10 @@ load time.
 - The REPL installs the finance plugin, so it's a good way to poke at
   tool-calling — try things like `gastei 15 reais no almoco hoje` or
   `qual e o meu saldo`.
+- No internet on first run, or want a different GGUF? Set
+  `ALLY_CHAT_MODEL_PATH` / `ALLY_EMBEDDING_MODEL_PATH` to a local file —
+  see `models/README.md` for details (also covers dropping a file in
+  `models/` under the exact pinned filename instead).
 - To talk to a different/bigger model via an existing `ollama serve`
   instead of the local default, call
   `ally.with_model(Arc::new(ally_models::OllamaBackend::new("model-name")))`

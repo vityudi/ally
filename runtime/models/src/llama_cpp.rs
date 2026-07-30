@@ -16,7 +16,9 @@
 //! `tokio::sync::OnceCell`. This keeps `Ally::new()`/`with_storage()`
 //! synchronous and infallible exactly like before — nothing pays the
 //! multi-second load (or first-run multi-minute download) until it
-//! actually talks to the model.
+//! actually talks to the model. For a first run with no network access,
+//! `ALLY_CHAT_MODEL_PATH`/`ALLY_EMBEDDING_MODEL_PATH` point at local GGUFs
+//! instead — see [`LlamaCppBackend::lazy_default`].
 //!
 //! Tool calling is the one place this backend can't just defer to
 //! llama.cpp: Ollama's `/api/chat` parses tool calls out of the model's
@@ -170,12 +172,30 @@ impl LlamaCppBackend {
     /// at which point the pinned default GGUFs (`download::DEFAULT_CHAT_MODEL`
     /// / `DEFAULT_EMBEDDING_MODEL`) are downloaded into `models_dir` (if
     /// not already cached there) and loaded.
+    ///
+    /// `ALLY_CHAT_MODEL_PATH` / `ALLY_EMBEDDING_MODEL_PATH`, if set, each
+    /// override the corresponding pinned download with a local GGUF path
+    /// instead — no network access at all for that model, and no filename
+    /// constraint (a file already sitting in `models_dir` under the pinned
+    /// name is picked up automatically without either variable, but
+    /// requires matching that exact name; these variables work with any
+    /// path/filename). Meant for offline first runs or swapping in a
+    /// different model without recompiling.
     pub fn lazy_default(models_dir: impl Into<PathBuf>) -> Self {
         let models_dir = models_dir.into();
-        Self::from_sources(
-            GgufSource::Download { pinned: &download::DEFAULT_CHAT_MODEL, models_dir: models_dir.clone() },
-            Some(GgufSource::Download { pinned: &download::DEFAULT_EMBEDDING_MODEL, models_dir }),
-        )
+
+        let chat_source = match std::env::var_os("ALLY_CHAT_MODEL_PATH") {
+            Some(path) => GgufSource::Path(PathBuf::from(path)),
+            None => {
+                GgufSource::Download { pinned: &download::DEFAULT_CHAT_MODEL, models_dir: models_dir.clone() }
+            }
+        };
+        let embedding_source = match std::env::var_os("ALLY_EMBEDDING_MODEL_PATH") {
+            Some(path) => GgufSource::Path(PathBuf::from(path)),
+            None => GgufSource::Download { pinned: &download::DEFAULT_EMBEDDING_MODEL, models_dir },
+        };
+
+        Self::from_sources(chat_source, Some(embedding_source))
     }
 
     fn from_sources(chat_source: GgufSource, embedding_source: Option<GgufSource>) -> Self {
