@@ -9,7 +9,7 @@
 [![Build](https://img.shields.io/badge/build-cargo%20workspace-informational?logo=rust&logoColor=white)](#building)
 [![Tokio](https://img.shields.io/badge/async-tokio-blueviolet?logo=rust&logoColor=white)](https://tokio.rs)
 [![Serde](https://img.shields.io/badge/serialization-serde-9cf?logo=rust&logoColor=white)](https://serde.rs)
-[![Status](https://img.shields.io/badge/status-early%20scaffold-yellow)](#status)
+[![Status](https://img.shields.io/badge/status-phase%205%20of%206-blue)](#status)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
@@ -51,10 +51,13 @@ ally-framework/
 
 ## 🚧 Status
 
-Early scaffold (**Phase 1: Runtime foundation**). Every crate currently
-exposes minimal stubs matching the responsibilities described in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — no real planning, memory or
-inference logic is implemented yet.
+Phases 1-5 of the roadmap in [`docs/FOUNDATION.md`](docs/FOUNDATION.md) have
+working implementations: Runtime foundation and plugin system, Memory/Planner/
+Context engines, native local inference via `llama.cpp` (default) and Ollama,
+the SDK and finance plugin, and a training/eval pipeline
+(`benchmarks/eval-harness`, `tools/dataset-gen`). Still early and evolving —
+see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the target shape and
+Phase 6 (PALM, a custom small model) for what's still ahead.
 
 ## 🛠️ Building
 
@@ -70,6 +73,30 @@ C/C++ toolchain (MSVC Build Tools on Windows, gcc/clang on Linux/macOS) —
 build `ally-models` without that step (e.g. to only use
 `ally_models::OllamaBackend`, talking to an existing `ollama serve`),
 disable its default feature: `cargo build -p ally-models --no-default-features`.
+
+## 🧪 Try it: chat REPL
+
+```sh
+cargo run -p ally-chat
+```
+
+No external services needed — `Ally::new()` defaults to the in-process
+`LlamaCppBackend`. The first message you send triggers a one-time download
+(~1.1 GB) of the pinned default GGUF weights into `models/` (see
+`models/README.md`), then loads them; that first call is slow, but every
+run after that reuses the cached weights and just pays the (much shorter)
+load time.
+
+- Type in Portuguese or English; type `sair` / `exit` / `quit` to leave.
+- The REPL installs the finance plugin, so it's a good way to poke at
+  tool-calling — try things like `gastei 15 reais no almoco hoje` or
+  `qual e o meu saldo`.
+- To talk to a different/bigger model via an existing `ollama serve`
+  instead of the local default, call
+  `ally.with_model(Arc::new(ally_models::OllamaBackend::new("model-name")))`
+  before the REPL loop starts, in `examples/chat/src/main.rs`.
+- `cargo run -p ally-cli` and `cargo run -p kyvo-example` are smaller,
+  non-interactive demos of the same SDK (see `examples/` and `cli/`).
 
 ## 📜 License
 
