@@ -242,16 +242,18 @@ impl Ally {
     /// Sends a chat turn to the configured Model Runtime.
     ///
     /// First, the latest user message is checked against every registered
-    /// tool's `trigger_phrases` (`ToolOrchestrator::match_trigger_phrase`).
-    /// A small local model's decision of *whether* to call a tool gets
-    /// markedly less reliable as a conversation grows multi-turn — even
-    /// though the tool itself works fine once actually called — so a
-    /// no-argument, read-only tool (e.g. "how much did I spend") is routed
-    /// to directly instead of leaving that decision to the model every
-    /// time. The model is still used, but only for one thing: phrasing the
-    /// tool's result naturally, never for deciding whether/which tool to
-    /// call. If no trigger phrase matches, this falls through to the
-    /// regular model-driven flow below.
+    /// tool's `trigger_phrases`, with arguments deterministically resolved
+    /// via `ToolOrchestrator::match_with_args`. A small local model's
+    /// decision of *whether* to call a tool gets markedly less reliable as
+    /// a conversation grows multi-turn — even though the tool itself works
+    /// fine once actually called — so a tool matched this way (e.g. "how
+    /// much did I spend on transport this month") is routed to directly
+    /// instead of leaving that decision to the model every time. The model
+    /// is still used, but only for one thing: phrasing the tool's result
+    /// naturally, never for deciding whether/which tool to call or with
+    /// what arguments. If no trigger phrase matches — or one matches but
+    /// required arguments couldn't be extracted — this falls through to
+    /// the regular model-driven flow below.
     ///
     /// Otherwise, this embeds the latest user message and retrieves the
     /// most relevant memories (`recall_relevant`), then prepends a
@@ -268,9 +270,9 @@ impl Ally {
     /// times — before returning the final response.
     pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse, ChatError> {
         if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
-            if let Some(tool) = self.tools.match_trigger_phrase(&query.content) {
+            if let Some((tool, args)) = self.tools.match_with_args(&query.content) {
                 let tool_name = tool.name().to_string();
-                let result = self.execute_tool(&tool_name, serde_json::json!({})).await?;
+                let result = self.execute_tool(&tool_name, args).await?;
 
                 let phrasing_request = ChatRequest {
                     messages: vec![

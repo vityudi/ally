@@ -6,11 +6,15 @@
 //! and track budgets/goals — the same "AI is never the source of truth
 //! for a number" principle the framework's docs call for.
 
+mod categories;
+mod dates;
+mod nlu;
+
 use ally_scheduler::{ScheduledTask, Scheduler};
 use ally_security::Permission;
-use ally_tools::{Tool, ToolError};
+use ally_tools::{ExtractOutcome, Tool, ToolError};
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -189,6 +193,7 @@ impl Tool for RegisterExpenseTool {
     async fn execute(&self, input: Value) -> Result<Value, ToolError> {
         let amount = positive_amount(&input, "amount")?;
         let category = required_str(&input, "category")?;
+        let category = categories::resolve_category(&category).map(str::to_string).unwrap_or(category);
         let note = optional_str(&input, "note");
         let date = optional_date(&input, "date")?;
 
@@ -209,6 +214,14 @@ impl Tool for RegisterExpenseTool {
             "status": "registered", "kind": "expense",
             "amount": amount, "category": category, "note": note, "date": date.to_string(), "balance": balance
         }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec!["gastei", "paguei", "comprei"]
+    }
+
+    fn extract_args(&self, message: &str) -> ExtractOutcome {
+        nlu::extract_expense_args(message, chrono::Local::now().date_naive())
     }
 }
 
@@ -265,6 +278,14 @@ impl Tool for RegisterIncomeTool {
             "status": "registered", "kind": "income",
             "amount": amount, "note": note, "date": date.to_string(), "balance": balance
         }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec!["recebi", "ganhei"]
+    }
+
+    fn extract_args(&self, message: &str) -> ExtractOutcome {
+        nlu::extract_income_args(message, chrono::Local::now().date_naive())
     }
 }
 
@@ -328,7 +349,8 @@ impl Tool for GetSpendingTool {
             "type": "object",
             "properties": {
                 "from": { "type": "string", "description": "Optional ISO start date (YYYY-MM-DD), inclusive; defaults to today" },
-                "to": { "type": "string", "description": "Optional ISO end date (YYYY-MM-DD), inclusive; defaults to today" }
+                "to": { "type": "string", "description": "Optional ISO end date (YYYY-MM-DD), inclusive; defaults to today" },
+                "category": { "type": "string", "description": "Optional category to filter by, e.g. 'food' or 'transport'" }
             }
         })
     }
@@ -343,12 +365,19 @@ impl Tool for GetSpendingTool {
         if from > to {
             return Err(ToolError::Execution("'from' must not be after 'to'".to_string()));
         }
+        let category = optional_str(&input, "category")
+            .map(|category| categories::resolve_category(&category).map(str::to_string).unwrap_or(category));
 
         let ledger = self.ledger.lock().expect("ledger mutex poisoned");
         let matching: Vec<&Transaction> = ledger
             .transactions
             .iter()
-            .filter(|t| t.kind == TransactionKind::Expense && t.date >= from && t.date <= to)
+            .filter(|t| {
+                t.kind == TransactionKind::Expense
+                    && t.date >= from
+                    && t.date <= to
+                    && category.as_ref().is_none_or(|category| t.category.as_deref() == Some(category.as_str()))
+            })
             .collect();
 
         let total: f64 = matching.iter().map(|t| t.amount).sum();
@@ -378,6 +407,10 @@ impl Tool for GetSpendingTool {
             "how much did i spend",
             "how much have i spent",
         ]
+    }
+
+    fn extract_args(&self, message: &str) -> ExtractOutcome {
+        nlu::extract_spending_args(message, chrono::Local::now().date_naive())
     }
 }
 
@@ -413,6 +446,7 @@ impl Tool for CreateBudgetTool {
 
     async fn execute(&self, input: Value) -> Result<Value, ToolError> {
         let category = required_str(&input, "category")?;
+        let category = categories::resolve_category(&category).map(str::to_string).unwrap_or(category);
         let limit = positive_amount(&input, "limit")?;
 
         self.ledger
@@ -470,6 +504,84 @@ impl Tool for CreateGoalTool {
     }
 }
 
+/// Answers "how much can I still spend on X" / "am I within budget on X" by
+/// comparing a category's budget limit against what's actually been spent
+/// in that category this month — the model must never estimate this from
+/// memory since it requires both a stored limit and a live sum.
+pub struct BudgetStatusTool {
+    ledger: Arc<Mutex<Ledger>>,
+}
+
+#[async_trait]
+impl Tool for BudgetStatusTool {
+    fn name(&self) -> &str {
+        "finance.get_budget_status"
+    }
+
+    fn description(&self) -> &str {
+        "Returns a category's budget limit, amount spent this month, and remaining amount."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "category": { "type": "string", "description": "Budget category to check, e.g. 'food' or 'transport'" }
+            },
+            "required": ["category"]
+        })
+    }
+
+    fn required_permissions(&self) -> Vec<Permission> {
+        vec![Permission::Read]
+    }
+
+    async fn execute(&self, input: Value) -> Result<Value, ToolError> {
+        let category = required_str(&input, "category")?;
+        let category = categories::resolve_category(&category).map(str::to_string).unwrap_or(category);
+
+        let ledger = self.ledger.lock().expect("ledger mutex poisoned");
+        let limit = ledger
+            .budgets
+            .get(&category)
+            .map(|budget| budget.limit)
+            .ok_or_else(|| ToolError::Execution(format!("no budget set for category '{category}'")))?;
+
+        let today = chrono::Local::now().date_naive();
+        let month_start = today.with_day(1).expect("day 1 is always valid");
+        let spent: f64 = ledger
+            .transactions
+            .iter()
+            .filter(|t| {
+                t.kind == TransactionKind::Expense
+                    && t.category.as_deref() == Some(category.as_str())
+                    && t.date >= month_start
+                    && t.date <= today
+            })
+            .map(|t| t.amount)
+            .sum();
+
+        Ok(json!({
+            "category": category, "limit": limit, "spent": spent,
+            "remaining": limit - spent, "over_budget": spent > limit
+        }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec![
+            "quanto ainda posso gastar",
+            "estou dentro do orcamento",
+            "estou dentro do orçamento",
+            "quanto sobrou do orcamento",
+            "quanto sobrou do orçamento",
+        ]
+    }
+
+    fn extract_args(&self, message: &str) -> ExtractOutcome {
+        nlu::extract_budget_status_args(message)
+    }
+}
+
 /// Lists every budget created so far, so the model can answer "what are my
 /// budgets" without guessing from conversation history.
 pub struct ListBudgetsTool {
@@ -505,6 +617,10 @@ impl Tool for ListBudgetsTool {
             .collect();
 
         Ok(json!({ "budgets": budgets }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec!["meus orcamentos", "meus orçamentos", "quais sao meus orcamentos", "my budgets", "what are my budgets"]
     }
 }
 
@@ -550,6 +666,10 @@ impl Tool for ListGoalsTool {
 
         Ok(json!({ "goals": goals }))
     }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec!["minha meta", "minhas metas", "my goals", "my savings goal", "how is my goal"]
+    }
 }
 
 pub struct FinancePlugin {
@@ -585,6 +705,7 @@ impl ally_plugins::Plugin for FinancePlugin {
             Box::new(GetSpendingTool { ledger: self.ledger.clone() }),
             Box::new(CreateBudgetTool { ledger: self.ledger.clone() }),
             Box::new(CreateGoalTool { ledger: self.ledger.clone() }),
+            Box::new(BudgetStatusTool { ledger: self.ledger.clone() }),
             Box::new(ListBudgetsTool { ledger: self.ledger.clone() }),
             Box::new(ListGoalsTool { ledger: self.ledger.clone() }),
         ]
