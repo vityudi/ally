@@ -1,0 +1,12 @@
+[package]
+name = "model-latency-benchmark"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Measures chat latency and process memory of the configured Model Runtime backend"
+publish = false
+
+[dependencies]
+ally-models.workspace = true
+sysinfo.workspace = true
+tokio.workspace = true

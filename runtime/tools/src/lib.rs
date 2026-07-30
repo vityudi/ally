@@ -18,6 +18,11 @@ pub enum ToolError {
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
+    /// Human-readable description handed to a Language Model so it can
+    /// decide when to request this tool (see `ally_models::ToolSpec`).
+    fn description(&self) -> &str;
+    /// JSON Schema for this tool's `execute` input.
+    fn parameters_schema(&self) -> Value;
     fn required_permissions(&self) -> Vec<Permission>;
     async fn execute(&self, input: Value) -> Result<Value, ToolError>;
 }
@@ -34,6 +39,12 @@ impl ToolOrchestrator {
 
     pub fn register(&mut self, tool: Box<dyn Tool>) {
         self.tools.push(tool);
+    }
+
+    /// Every registered tool, in registration order — used to build the
+    /// `ToolSpec` list handed to a Model Runtime backend.
+    pub fn list(&self) -> impl Iterator<Item = &dyn Tool> {
+        self.tools.iter().map(|t| t.as_ref())
     }
 
     pub async fn execute(

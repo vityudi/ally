@@ -9,3 +9,6 @@ description = "Ally Runtime - Model Runtime: abstracts local and remote inferenc
 async-trait.workspace = true
 thiserror.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+futures-util.workspace = true

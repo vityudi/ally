@@ -9,4 +9,6 @@ description = "Ally Plugin: finance capability"
 ally-tools.workspace = true
 ally-security.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
 ally-plugins.workspace = true

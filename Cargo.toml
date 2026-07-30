@@ -22,6 +22,7 @@ members = [
     "plugins/knowledge",
     "plugins/home",
     "examples/kyvo",
+    "benchmarks/model-latency",
 ]
 
 [workspace.package]
@@ -50,3 +51,6 @@ serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures-util = "0.3"
+sysinfo = "0.31"
