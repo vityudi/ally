@@ -11,7 +11,13 @@
 
 mod ollama;
 
+#[cfg(feature = "llama-cpp")]
+mod llama_cpp;
+
 pub use ollama::{OllamaBackend, DEFAULT_EMBEDDING_MODEL};
+
+#[cfg(feature = "llama-cpp")]
+pub use llama_cpp::LlamaCppBackend;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

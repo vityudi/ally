@@ -7,15 +7,16 @@
 //! permission-checked Tool Orchestrator (the model never touches it
 //! directly), and the model turns the tool result into a confirmation.
 //!
-//! Requires a local Ollama daemon (`ollama serve`) with a small
-//! tool-calling-capable model pulled, e.g.:
-//!   ollama pull qwen2.5:1.5b
+//! No setup required: `Ally::new()` defaults to the in-process
+//! `LlamaCppBackend`, which downloads its pinned default GGUF into
+//! `models/` on first use (see `models/README.md`) — no external daemon.
 //!
-//! Tested against qwen2.5:0.5b and qwen2.5:1.5b: the 0.5b model reports
-//! "tools" capability but never actually emits a tool call for this
-//! prompt, even with a directive system message — it's simply too small.
-//! 1.5b calls the tool reliably. `ally_sdk::DEFAULT_MODEL` matches this
-//! finding; swap it via `Ally::with_model` for anything else.
+//! Tested against qwen2.5:0.5b and qwen2.5:1.5b (the pinned default is the
+//! 1.5b-class GGUF): the 0.5b model reports "tools" capability but never
+//! actually emits a tool call for this prompt, even with a directive
+//! system message — it's simply too small. 1.5b calls the tool reliably.
+//! Swap the backend via `Ally::with_model` for anything else (a bigger
+//! model via `ally_models::OllamaBackend`, for instance).
 
 use ally_scheduler::Scheduler;
 use ally_sdk::{Ally, ChatMessage, ChatRequest, LoggingHandler, Permission};

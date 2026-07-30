@@ -12,3 +12,25 @@ serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
 futures-util.workspace = true
+
+# In-process inference via llama.cpp — the default Model Runtime backend
+# (see `src/llama_cpp.rs` module doc). Pulls in a cmake + C/C++ toolchain
+# build step, so it stays behind the `llama-cpp` feature rather than a
+# plain dependency — but that feature is default-on below, since it's now
+# what a plain `cargo build` is expected to produce. Pass
+# `--no-default-features` for a lighter, Ollama-only build.
+llama-cpp-2 = { version = "0.1.153", optional = true }
+# Self-referential struct helper: a `LlamaContext<'a>` borrows from the
+# `LlamaModel` it was created from, and both need to live in the same
+# `LlamaCppBackend` field. See the module doc in `src/llama_cpp.rs`.
+ouroboros = { version = "0.18", optional = true }
+encoding_rs = { version = "0.8", optional = true }
+sha2 = { version = "0.10", optional = true }
+hex = { version = "0.4", optional = true }
+# `sync` is needed for `tokio::sync::OnceCell`, used to lazily load the
+# GGUF on first use instead of blocking `LlamaCppBackend::lazy_default`.
+tokio = { workspace = true, features = ["sync"], optional = true }
+
+[features]
+default = ["llama-cpp"]
+llama-cpp = ["dep:llama-cpp-2", "dep:ouroboros", "dep:encoding_rs", "dep:sha2", "dep:hex", "dep:tokio"]

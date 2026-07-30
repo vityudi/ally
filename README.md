@@ -62,7 +62,14 @@ inference logic is implemented yet.
 cargo build --workspace
 ```
 
-Requires a recent stable Rust toolchain (edition 2021).
+Requires a recent stable Rust toolchain (edition 2021). The default Model
+Runtime backend runs inference in-process via `llama.cpp`
+(`runtime/models/src/llama_cpp.rs`), so the build also needs `cmake` and a
+C/C++ toolchain (MSVC Build Tools on Windows, gcc/clang on Linux/macOS) —
+`llama-cpp-2` compiles `llama.cpp` itself as part of `cargo build`. To
+build `ally-models` without that step (e.g. to only use
+`ally_models::OllamaBackend`, talking to an existing `ollama serve`),
+disable its default feature: `cargo build -p ally-models --no-default-features`.
 
 ## 📜 License
 

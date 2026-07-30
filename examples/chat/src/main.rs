@@ -1,13 +1,21 @@
 //! Interactive REPL to actually converse with whatever model backend the
-//! Ally SDK is configured with (default: Ollama, `ally_sdk::DEFAULT_MODEL`).
+//! Ally SDK is configured with (default: `LlamaCppBackend`, fully
+//! in-process — no external daemon).
 //!
 //! Unlike `examples/kyvo` (a single hardcoded prompt), this keeps the full
 //! message history across turns, so you can have a real back-and-forth and
 //! see how the model behaves with follow-ups, ambiguous input, or requests
 //! that should/shouldn't trigger the finance plugin's tools.
 //!
-//! Requires a local Ollama daemon (`ollama serve`) with a tool-calling
-//! model pulled, e.g. `ollama pull qwen2.5:1.5b`.
+//! No setup required: the first message triggers a one-time download
+//! (~1.1 GB) of the pinned default GGUF weights into `models/`, then loads
+//! them — see `ally_sdk::DEFAULT_MODELS_DIR` and
+//! `ally_models::LlamaCppBackend::lazy_default`. That first call is slow;
+//! subsequent runs reuse the cached weights and only pay the (much
+//! shorter) model-load time. To use a bigger model via an existing
+//! `ollama serve` instead, call
+//! `ally.with_model(Arc::new(ally_models::OllamaBackend::new("...")))`
+//! before the REPL loop starts.
 //!
 //! Run with: `cargo run -p ally-chat`
 //! Type `sair` / `exit` / `quit` to leave.
@@ -83,10 +91,7 @@ async fn main() {
                 messages.push(response.message);
             }
             Err(err) => {
-                eprintln!(
-                    "ally> (erro ao falar com o backend: {err}. \
-                     `ollama serve` esta rodando com um modelo pull-ado?)\n"
-                );
+                eprintln!("ally> (erro ao falar com o backend: {err})\n");
                 messages.pop(); // don't keep a turn that never got a reply
             }
         }

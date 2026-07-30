@@ -1,7 +1,10 @@
-//! First `ModelBackend` implementation, talking to a local Ollama daemon
-//! over HTTP. Chosen over llama.cpp for Phase 3 because it needs no FFI
-//! bindings or bundled model weights — just `ollama serve` running
-//! locally, which keeps the story identical on Windows/Linux/macOS.
+//! `ModelBackend` implementation talking to a local (or remote) Ollama
+//! daemon over HTTP. Was the original default before `LlamaCppBackend`
+//! (`src/llama_cpp.rs`) took over that role — no longer what `Ally::new()`
+//! gives you, but still here and still useful: point `Ally::with_model` at
+//! `OllamaBackend::new(...)` if you'd rather run a bigger model than the
+//! pinned default, or one already served by an existing `ollama serve`
+//! instance, without recompiling anything.
 
 use crate::{ChatMessage, ChatRequest, ChatResponse, ModelBackend, ModelError, ToolCall, ToolSpec};
 use async_trait::async_trait;

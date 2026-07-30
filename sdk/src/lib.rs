@@ -6,7 +6,7 @@
 use ally_context::ContextEngine;
 use ally_events::EventBus;
 use ally_memory::{MemoryEngine, MemoryError};
-use ally_models::{ModelBackend, ModelError, OllamaBackend};
+use ally_models::{LlamaCppBackend, ModelBackend, ModelError};
 use ally_planner::Planner;
 use ally_plugins::PluginManager;
 use ally_security::PermissionSet;
@@ -26,12 +26,15 @@ pub use ally_planner::{Intent, Plan};
 pub use ally_plugins::{Plugin, PluginError};
 pub use ally_security::Permission;
 
-/// Default local Ollama model used when an application doesn't configure
-/// one explicitly. `0.5b` reports tool-calling support but did not
-/// reliably emit tool calls in testing; `1.5b` is the smallest size that
-/// did, so it's the default despite the larger download. Swap it with
-/// `Ally::with_model` for anything else.
-const DEFAULT_MODEL: &str = "qwen2.5:1.5b";
+/// Where `Ally::with_storage` points `LlamaCppBackend::lazy_default` to
+/// look for (and download into, on first use) the pinned default GGUF
+/// weights — see `ally_models::llama_cpp`'s module doc. Relative to the
+/// process's current working directory, matching the existing `/models`
+/// convention (`models/README.md`) and how `Ally::open`'s SQLite path is
+/// already resolved the same way. Not an OS-appropriate user data
+/// directory yet — a reasonable follow-up, not required for dropping the
+/// external Ollama dependency.
+const DEFAULT_MODELS_DIR: &str = "models";
 
 /// Caps how many tool-call round trips `Ally::chat` will make in a single
 /// turn, so a model that keeps requesting tools can't loop forever.
@@ -114,7 +117,11 @@ impl Ally {
     }
 
     /// Creates an `Ally` backed by any [`Storage`] implementation, using
-    /// the default local Ollama backend as its Model Runtime.
+    /// the in-process `LlamaCppBackend` as its Model Runtime — no external
+    /// daemon required. Weights are downloaded into [`DEFAULT_MODELS_DIR`]
+    /// lazily, on the first call that actually needs the model (`chat`,
+    /// `chat_stream`, `embed`, and therefore `remember`/`recall_relevant`
+    /// too), not here — see `ally_models::LlamaCppBackend::lazy_default`.
     pub fn with_storage(storage: Arc<dyn Storage>) -> Self {
         Self {
             planner: Planner::new(),
@@ -124,12 +131,13 @@ impl Ally {
             plugins: PluginManager::new(),
             events: EventBus::new(),
             permissions: PermissionSet::default(),
-            model: Arc::new(OllamaBackend::new(DEFAULT_MODEL)),
+            model: Arc::new(LlamaCppBackend::lazy_default(DEFAULT_MODELS_DIR)),
         }
     }
 
-    /// Swaps the Model Runtime backend (e.g. a different Ollama model, or
-    /// any other `ModelBackend` implementation).
+    /// Swaps the Model Runtime backend — e.g. `ally_models::OllamaBackend`
+    /// to talk to an existing `ollama serve` instead, or any other
+    /// `ModelBackend` implementation.
     pub fn with_model(&mut self, model: Arc<dyn ModelBackend>) {
         self.model = model;
     }

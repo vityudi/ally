@@ -1,17 +1,34 @@
 //! Measures chat latency and process memory for the configured Model
-//! Runtime backend. Requires a local `ollama serve` with the target model
-//! pulled — this is a manual dev tool, not part of `cargo test`.
+//! Runtime backend. Defaults to the in-process `LlamaCppBackend` (no
+//! external service needed — downloads its pinned default GGUF into
+//! `models/` on first use, same as `Ally::new()`). Set
+//! `ALLY_MODEL_BACKEND=ollama` to benchmark the old default instead, for a
+//! direct latency/RSS comparison; that path requires a local
+//! `ollama serve` with the target model pulled. Manual dev tool, not part
+//! of `cargo test`.
 //!
 //! Usage:
 //!   cargo run -p model-latency-benchmark -- [model] [rounds]
+//!   `[model]` only applies to the `ollama` backend — llama-cpp always
+//!   uses its pinned default GGUF.
 
-use ally_models::{ChatMessage, ChatRequest, ModelBackend, OllamaBackend};
+use ally_models::{ChatMessage, ChatRequest, LlamaCppBackend, ModelBackend, OllamaBackend};
+use std::sync::Arc;
 use std::time::Instant;
 use sysinfo::{get_current_pid, System};
 
 const DEFAULT_MODEL: &str = "qwen2.5:0.5b";
 const DEFAULT_ROUNDS: usize = 5;
 const PROMPT: &str = "In one short sentence, what is a personal intelligence runtime?";
+const MODELS_DIR: &str = "models";
+
+fn build_backend(model_name: &str) -> Arc<dyn ModelBackend> {
+    if std::env::var("ALLY_MODEL_BACKEND").as_deref() == Ok("ollama") {
+        Arc::new(OllamaBackend::new(model_name))
+    } else {
+        Arc::new(LlamaCppBackend::lazy_default(MODELS_DIR))
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -22,8 +39,8 @@ async fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(DEFAULT_ROUNDS);
 
-    let backend = OllamaBackend::new(&model_name);
-    println!("model: {model_name}  rounds: {rounds}");
+    let backend = build_backend(&model_name);
+    println!("backend: {}  model: {model_name}  rounds: {rounds}", backend.name());
 
     let mut latencies_ms = Vec::with_capacity(rounds);
     for round in 1..=rounds {
@@ -40,9 +57,7 @@ async fn main() {
                 latencies_ms.push(elapsed.as_secs_f64() * 1000.0);
             }
             Err(err) => {
-                eprintln!(
-                    "round {round}: failed ({err}). Is `ollama serve` running with `{model_name}` pulled?"
-                );
+                eprintln!("round {round}: failed ({err})");
                 return;
             }
         }
