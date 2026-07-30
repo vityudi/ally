@@ -274,6 +274,13 @@ impl Ally {
                 let tool_name = tool.name().to_string();
                 let result = self.execute_tool(&tool_name, args).await?;
 
+                if let Some(message) = tool.describe_result(&result) {
+                    return Ok(ChatResponse {
+                        message: ChatMessage::assistant(message),
+                        tool_calls: Vec::new(),
+                    });
+                }
+
                 let phrasing_request = ChatRequest {
                     messages: vec![
                         ChatMessage::system(
@@ -347,6 +354,56 @@ impl Ally {
             response = self.model.chat(request.clone()).await?;
         }
 
+        if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
+            if let Some(fact) = self.extract_personal_fact(&query.content).await {
+                let id = format!(
+                    "fact-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .expect("system clock is before UNIX epoch")
+                        .as_nanos()
+                );
+                // Best-effort: a failure to persist a remembered fact
+                // shouldn't fail the whole turn — the user still gets
+                // `response` back either way.
+                let _ = self
+                    .remember(MemoryRecord { id, kind: MemoryKind::Semantic, content: fact, embedding: None })
+                    .await;
+            }
+        }
+
         Ok(response)
+    }
+
+    /// Best-effort: asks the model whether the user's latest message stated
+    /// a durable personal fact (name, preference, where they live, a
+    /// restriction, ...) worth remembering long-term, via a short, isolated
+    /// prompt — deliberately NOT appended to the rest of the conversation's
+    /// history. Longer, multi-rule prompts made qwen2.5:1.5b fail outright
+    /// in earlier testing (see the project's small-model-prompting notes),
+    /// so this asks exactly one thing and nothing else. Returns `None` on
+    /// any backend failure or an explicit "none" reply — never blocks
+    /// `chat` from returning `response` to the user, since missing a fact
+    /// to remember is a much smaller problem than failing to reply.
+    async fn extract_personal_fact(&self, message: &str) -> Option<String> {
+        let extraction_request = ChatRequest {
+            messages: vec![
+                ChatMessage::system(
+                    "The user said this to a personal assistant. If it STATES a durable \
+                     personal fact about them (name, preference, where they live, a \
+                     restriction, etc.), reply with that fact as one short third-person \
+                     sentence. If it's a question, a command, or doesn't state a new fact, \
+                     reply with exactly: none",
+                ),
+                ChatMessage::user(message),
+            ],
+            tools: Vec::new(),
+        };
+        let response = self.model.chat(extraction_request).await.ok()?;
+        let fact = response.message.content.trim();
+        if fact.is_empty() || fact.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        Some(fact.to_string())
     }
 }

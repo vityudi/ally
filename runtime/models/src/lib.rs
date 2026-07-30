@@ -42,6 +42,10 @@ impl ChatMessage {
     pub fn tool(content: impl Into<String>) -> Self {
         Self { role: "tool".to_string(), content: content.into() }
     }
+
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self { role: "assistant".to_string(), content: content.into() }
+    }
 }
 
 /// Describes a callable Tool to the model, in the shape most local

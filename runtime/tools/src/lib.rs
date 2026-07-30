@@ -71,6 +71,23 @@ pub trait Tool: Send + Sync {
     fn extract_args(&self, _message: &str) -> ExtractOutcome {
         ExtractOutcome::NotAttempted
     }
+
+    /// Deterministically renders a trigger-matched call's own `execute`
+    /// result as a user-facing reply, bypassing the model entirely.
+    /// Defaults to `None`, meaning "ask the model to phrase it" — the
+    /// same behavior as before this hook existed, and still the right
+    /// choice for read tools, where natural framing of a number is the
+    /// point and hallucination risk is low. Override this for tools whose
+    /// result is fully self-describing (typically a write/action tool),
+    /// where a small model asked to "phrase" a JSON result has been
+    /// observed inventing details it never returned (see this project's
+    /// small-model-prompting notes) instead of just confirming the action.
+    /// This lives on `Tool`, not the caller, so each plugin owns how its
+    /// own results are described — the SDK never needs to know a given
+    /// plugin's result shape to add another one.
+    fn describe_result(&self, _result: &Value) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Default)]
@@ -117,16 +134,32 @@ impl ToolOrchestrator {
         Ok(result)
     }
 
-    /// Finds the first registered tool whose `trigger_phrases()` matches
-    /// `message` (case-insensitive substring), if any. See
-    /// `Tool::trigger_phrases` for why this exists.
+    /// Finds the registered tool whose `trigger_phrases()` best matches
+    /// `message` (case-insensitive substring), if any. "Best" means the
+    /// *longest* matching phrase wins, not the first-registered tool —
+    /// otherwise a short, generic phrase (e.g. register_expense's "gastei")
+    /// would shadow a longer, more specific one from a tool registered
+    /// later (e.g. get_spending's "quanto gastei"), since "gastei" is a
+    /// substring of "quanto gastei". Confirmed: without this, "quanto
+    /// gastei hoje?" matched register_expense first, extraction failed (no
+    /// amount in the message), and the match was abandoned entirely instead
+    /// of ever trying get_spending. See `Tool::trigger_phrases` for why
+    /// this exists at all.
     pub fn match_trigger_phrase(&self, message: &str) -> Option<&dyn Tool> {
         let message = message.to_lowercase();
-        self.tools.iter().map(|t| t.as_ref()).find(|tool| {
-            tool.trigger_phrases()
-                .iter()
-                .any(|phrase| message.contains(&phrase.to_lowercase()))
-        })
+        self.tools
+            .iter()
+            .map(|t| t.as_ref())
+            .filter_map(|tool| {
+                tool.trigger_phrases()
+                    .iter()
+                    .filter(|phrase| message.contains(&phrase.to_lowercase()))
+                    .map(|phrase| phrase.len())
+                    .max()
+                    .map(|longest| (tool, longest))
+            })
+            .max_by_key(|(_, longest)| *longest)
+            .map(|(tool, _)| tool)
     }
 
     /// Like `match_trigger_phrase`, but also resolves the arguments to call
@@ -180,6 +213,43 @@ mod tests {
         assert!(orchestrator.match_trigger_phrase("Quanto Gastei hoje?").is_some());
         assert!(orchestrator.match_trigger_phrase("well, HOW MUCH DID I SPEND today").is_some());
         assert!(orchestrator.match_trigger_phrase("what's my balance").is_none());
+    }
+
+    #[test]
+    fn match_trigger_phrase_prefers_the_longest_match_over_registration_order() {
+        struct ShortPhrase;
+
+        #[async_trait]
+        impl Tool for ShortPhrase {
+            fn name(&self) -> &str {
+                "test.short"
+            }
+            fn description(&self) -> &str {
+                "test tool"
+            }
+            fn parameters_schema(&self) -> Value {
+                serde_json::json!({ "type": "object", "properties": {} })
+            }
+            fn required_permissions(&self) -> Vec<Permission> {
+                Vec::new()
+            }
+            async fn execute(&self, _input: Value) -> Result<Value, ToolError> {
+                Ok(serde_json::json!({ "ok": true }))
+            }
+            fn trigger_phrases(&self) -> Vec<&str> {
+                vec!["gastei"]
+            }
+        }
+
+        let mut orchestrator = ToolOrchestrator::new();
+        // Registered first, so registration order alone would pick it —
+        // but "quanto gastei" (registered second, below) is the longer,
+        // more specific match and should win instead.
+        orchestrator.register(Box::new(ShortPhrase));
+        orchestrator.register(Box::new(FixedTool));
+
+        let matched = orchestrator.match_trigger_phrase("quanto gastei hoje?").unwrap();
+        assert_eq!(matched.name(), "test.fixed");
     }
 
     #[test]

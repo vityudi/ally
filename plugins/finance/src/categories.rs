@@ -35,7 +35,13 @@ pub const CATEGORIES: &[&str] =
     &["food", "transport", "housing", "health", "leisure", "education", "shopping", "bills", "salary", "other"];
 
 const SYNONYMS: &[(&str, &[&str])] = &[
-    ("food", &["mercado", "supermercado", "comida", "alimentacao", "restaurante", "food", "groceries"]),
+    (
+        "food",
+        &[
+            "mercado", "supermercado", "comida", "alimentacao", "restaurante", "food", "groceries",
+            "almoco", "jantar", "cafe da manha", "lanche", "lunch", "dinner", "breakfast", "snack",
+        ],
+    ),
     ("transport", &["transporte", "uber", "gasolina", "combustivel", "transport", "gas"]),
     ("housing", &["aluguel", "casa", "moradia", "rent", "housing"]),
     ("health", &["saude", "remedio", "farmacia", "health", "medicine"]),
@@ -68,7 +74,18 @@ pub fn category_matches_in(message: &str) -> Option<&'static str> {
 
     SYNONYMS
         .iter()
-        .find(|(_, synonyms)| synonyms.iter().any(|synonym| words.contains(synonym)))
+        .find(|(_, synonyms)| {
+            synonyms.iter().any(|synonym| {
+                // A synonym with a space (e.g. "cafe da manha") can't ever
+                // equal a single split word, so it needs a substring check
+                // against the whole normalized message instead.
+                if synonym.contains(' ') {
+                    normalized.contains(synonym)
+                } else {
+                    words.contains(synonym)
+                }
+            })
+        })
         .map(|(canonical, _)| *canonical)
 }
 

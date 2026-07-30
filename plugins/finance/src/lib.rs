@@ -223,6 +223,21 @@ impl Tool for RegisterExpenseTool {
     fn extract_args(&self, message: &str) -> ExtractOutcome {
         nlu::extract_expense_args(message, chrono::Local::now().date_naive())
     }
+
+    fn describe_result(&self, result: &Value) -> Option<String> {
+        // Deterministic on purpose: asking the model to phrase this result
+        // reliably invented details it never returned (e.g. a restaurant
+        // name) even when told to use only the tool result — see this
+        // project's small-model-prompting notes. Every field used here is
+        // already in `result` from `execute` above.
+        let amount = result.get("amount")?.as_f64()?;
+        let category = result.get("category").and_then(Value::as_str).unwrap_or("outros");
+        let date = result.get("date").and_then(Value::as_str).unwrap_or("");
+        let balance = result.get("balance").and_then(Value::as_f64)?;
+        Some(format!(
+            "Gasto de {amount:.2} em \"{category}\" registrado ({date}). Saldo atual: {balance:.2}."
+        ))
+    }
 }
 
 /// Registers income, adding it to the ledger's balance.
@@ -286,6 +301,15 @@ impl Tool for RegisterIncomeTool {
 
     fn extract_args(&self, message: &str) -> ExtractOutcome {
         nlu::extract_income_args(message, chrono::Local::now().date_naive())
+    }
+
+    fn describe_result(&self, result: &Value) -> Option<String> {
+        // See RegisterExpenseTool::describe_result for why this is
+        // deterministic instead of model-phrased.
+        let amount = result.get("amount")?.as_f64()?;
+        let date = result.get("date").and_then(Value::as_str).unwrap_or("");
+        let balance = result.get("balance").and_then(Value::as_f64)?;
+        Some(format!("Recebimento de {amount:.2} registrado ({date}). Saldo atual: {balance:.2}."))
     }
 }
 
