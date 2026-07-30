@@ -345,6 +345,14 @@ impl Tool for GetBalanceTool {
     fn trigger_phrases(&self) -> Vec<&str> {
         vec!["meu saldo", "qual e o meu saldo", "qual o meu saldo", "what's my balance", "what is my balance"]
     }
+
+    fn describe_result(&self, result: &Value) -> Option<String> {
+        // Deterministic on purpose, same reasoning as
+        // `RegisterExpenseTool::describe_result` — this also skips a whole
+        // extra model generation for what's otherwise a one-number answer.
+        let balance = result.get("balance")?.as_f64()?;
+        Some(format!("Seu saldo atual e de {balance:.2}."))
+    }
 }
 
 /// Answers "how much did I spend [in a period]" with the actual recorded
@@ -435,6 +443,33 @@ impl Tool for GetSpendingTool {
 
     fn extract_args(&self, message: &str) -> ExtractOutcome {
         nlu::extract_spending_args(message, chrono::Local::now().date_naive())
+    }
+
+    fn describe_result(&self, result: &Value) -> Option<String> {
+        // Deterministic on purpose, same reasoning as
+        // `RegisterExpenseTool::describe_result` — letting the model phrase
+        // this produced a first-person "gastei" (as if the assistant spent
+        // the money) and dropped the per-transaction detail, even though
+        // `transactions` already has it. Second person ("voce gastou") and
+        // listing what each transaction was for are both free once this
+        // isn't left to the model to improvise.
+        let total = result.get("total")?.as_f64()?;
+        let transactions = result.get("transactions")?.as_array()?;
+
+        if transactions.is_empty() {
+            return Some("Voce nao teve nenhum gasto registrado nesse periodo.".to_string());
+        }
+
+        let items: Vec<String> = transactions
+            .iter()
+            .filter_map(|t| {
+                let amount = t.get("amount")?.as_f64()?;
+                let category = t.get("category").and_then(Value::as_str).unwrap_or("outros");
+                Some(format!("{amount:.2} em \"{category}\""))
+            })
+            .collect();
+
+        Some(format!("Voce gastou {total:.2} no total: {}.", items.join(", ")))
     }
 }
 

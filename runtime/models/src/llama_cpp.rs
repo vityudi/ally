@@ -90,12 +90,22 @@ fn load(path: &Path, embeddings: bool) -> Result<SendSyncLoadedModel, ModelError
     let model = LlamaModel::load_from_file(backend(), path, &model_params)
         .map_err(|e| ModelError::Backend(format!("failed to load {}: {e}", path.display())))?;
 
+    // `LlamaContextParams::default()` (== upstream's `llama_context_default_params()`)
+    // hardcodes `n_threads`/`n_threads_batch` to `GGML_DEFAULT_N_THREADS`
+    // (4), not the machine's actual core count — Ollama's server detects
+    // and uses all available cores, so leaving this at the llama.cpp
+    // default made generation visibly slower here on anything with more
+    // than 4 cores. Match Ollama's behavior explicitly instead.
+    let n_threads = std::thread::available_parallelism().map(|n| n.get() as i32).unwrap_or(4);
+
     let loaded = LoadedModelTryBuilder {
         model,
         context_builder: |model| {
             let ctx_params = LlamaContextParams::default()
                 .with_n_ctx(NonZeroU32::new(DEFAULT_CONTEXT_SIZE))
-                .with_embeddings(embeddings);
+                .with_embeddings(embeddings)
+                .with_n_threads(n_threads)
+                .with_n_threads_batch(n_threads);
             model.new_context(backend(), ctx_params).map_err(|e| {
                 ModelError::Backend(format!("failed to create llama.cpp context: {e}"))
             })

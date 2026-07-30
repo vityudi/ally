@@ -408,6 +408,16 @@ impl Ally {
     /// `chat` from returning `response` to the user, since missing a fact
     /// to remember is a much smaller problem than failing to reply.
     async fn extract_personal_fact(&self, message: &str) -> Option<String> {
+        // Deterministic guard before trusting the model's judgment, same
+        // pattern as the trigger-phrase tool routing above: a trailing "?"
+        // is a free, reliable signal that this is a question, not a stated
+        // fact. Skips both a misclassification (seen live: a small local
+        // model replied with a "fact" extracted from "voce sabe algo sobre
+        // mim?" instead of "none") and an unnecessary model call.
+        if message.trim().ends_with('?') {
+            return None;
+        }
+
         let extraction_request = ChatRequest {
             messages: vec![
                 ChatMessage::system(
