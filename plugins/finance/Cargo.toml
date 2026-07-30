@@ -8,7 +8,12 @@ description = "Ally Plugin: finance capability"
 [dependencies]
 ally-tools.workspace = true
 ally-security.workspace = true
+ally-scheduler.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 async-trait.workspace = true
 ally-plugins.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+ally-events.workspace = true

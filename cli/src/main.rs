@@ -1,9 +1,6 @@
 //! Ally CLI: minimal local entry point to the Ally Runtime.
 
-use ally_events::LoggingHandler;
-use ally_memory::{MemoryKind, MemoryRecord};
-use ally_planner::Intent;
-use ally_sdk::Ally;
+use ally_sdk::{Ally, Intent, LoggingHandler, MemoryKind, MemoryRecord};
 
 #[tokio::main]
 async fn main() {
@@ -29,7 +26,7 @@ async fn main() {
         .expect("failed to recall memory");
     println!("recalled semantic memories: {recalled:?}");
 
-    let context = ally.context.assemble(
+    let context = ally.assemble_context(
         "User asked to schedule a credit card payment.".to_string(),
         vec!["user: I need to pay my credit card tomorrow.".to_string()],
         &recalled,

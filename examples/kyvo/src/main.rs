@@ -17,24 +17,26 @@
 //! 1.5b calls the tool reliably. `ally_sdk::DEFAULT_MODEL` matches this
 //! finding; swap it via `Ally::with_model` for anything else.
 
-use ally_events::LoggingHandler;
-use ally_models::ChatMessage;
-use ally_security::Permission;
-use ally_sdk::Ally;
+use ally_scheduler::Scheduler;
+use ally_sdk::{Ally, ChatMessage, ChatRequest, LoggingHandler, Permission};
+use std::sync::{Arc, Mutex};
 
 #[tokio::main]
 async fn main() {
     let mut ally = Ally::new();
     ally.on_event(Box::new(LoggingHandler));
-    ally.grant_permissions(vec![Permission::Notifications]);
-    ally.install_plugin(Box::new(ally_plugin_finance::FinancePlugin));
+    ally.grant_permissions(vec![Permission::Write]);
+
+    let scheduler = Arc::new(Mutex::new(Scheduler::new()));
+    ally.install_plugin(Box::new(ally_plugin_finance::FinancePlugin::new(scheduler)))
+        .expect("finance plugin should install cleanly");
 
     println!(
         "kyvo-example running on Ally SDK (installed plugins: {})",
-        ally.plugins.installed().count()
+        ally.installed_plugins().count()
     );
 
-    let request = ally_models::ChatRequest {
+    let request = ChatRequest {
         messages: vec![
             ChatMessage::system(
                 "You are Kyvo, a personal finance assistant. When the user mentions a \

@@ -27,9 +27,6 @@ dependencies = [
 name = "ally-cli"
 version = "0.1.0"
 dependencies = [
- "ally-events",
- "ally-memory",
- "ally-planner",
  "ally-sdk",
  "tokio",
 ]
@@ -96,12 +93,15 @@ dependencies = [
 name = "ally-plugin-finance"
 version = "0.1.0"
 dependencies = [
+ "ally-events",
  "ally-plugins",
+ "ally-scheduler",
  "ally-security",
  "ally-tools",
  "async-trait",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -161,6 +161,8 @@ dependencies = [
  "ally-events",
  "ally-security",
  "ally-tools",
+ "async-trait",
+ "serde_json",
  "thiserror",
 ]
 
@@ -709,12 +711,9 @@ dependencies = [
 name = "kyvo-example"
 version = "0.1.0"
 dependencies = [
- "ally-events",
- "ally-models",
  "ally-plugin-finance",
- "ally-plugins",
+ "ally-scheduler",
  "ally-sdk",
- "ally-security",
  "tokio",
 ]
 

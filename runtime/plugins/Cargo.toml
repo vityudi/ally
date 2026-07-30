@@ -10,3 +10,7 @@ ally-tools.workspace = true
 ally-security.workspace = true
 ally-events.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+serde_json.workspace = true

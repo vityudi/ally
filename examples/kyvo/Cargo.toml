@@ -8,9 +8,6 @@ publish = false
 
 [dependencies]
 ally-sdk.workspace = true
-ally-models.workspace = true
-ally-plugins.workspace = true
-ally-security.workspace = true
-ally-events.workspace = true
+ally-scheduler.workspace = true
 ally-plugin-finance = { path = "../../plugins/finance" }
 tokio.workspace = true

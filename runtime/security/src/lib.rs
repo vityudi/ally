@@ -3,15 +3,16 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// A capability a `Tool` may require and an application may grant, per the
+/// Security Layer contract in `docs/ARCHITECTURE.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Permission {
-    Filesystem,
+    Read,
+    Write,
     Network,
-    Camera,
+    Filesystem,
     Microphone,
-    Location,
-    Contacts,
-    Notifications,
+    Camera,
 }
 
 #[derive(Debug, Error)]
@@ -20,6 +21,9 @@ pub enum SecurityError {
     Denied(Permission),
 }
 
+/// The permissions an application has granted to the Runtime for the
+/// current session. Checked by `ally_tools::ToolOrchestrator::execute`
+/// before every tool call.
 #[derive(Default, Clone)]
 pub struct PermissionSet {
     granted: Vec<Permission>,
@@ -36,5 +40,23 @@ impl PermissionSet {
         } else {
             Err(SecurityError::Denied(permission))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn require_succeeds_when_granted() {
+        let set = PermissionSet::new(vec![Permission::Write]);
+        assert!(set.require(Permission::Write).is_ok());
+    }
+
+    #[test]
+    fn require_fails_when_not_granted() {
+        let set = PermissionSet::new(vec![Permission::Write]);
+        let err = set.require(Permission::Network).unwrap_err();
+        assert!(matches!(err, SecurityError::Denied(Permission::Network)));
     }
 }

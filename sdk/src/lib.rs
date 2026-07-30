@@ -1,19 +1,30 @@
 //! Ally SDK: the only interface applications are meant to depend on.
 //! Applications never talk to the model, memory or tools directly —
 //! they talk to `Ally`, and the Runtime does the rest.
+#![deny(missing_docs)]
 
 use ally_context::ContextEngine;
-use ally_events::{Event, EventBus, EventHandler};
-use ally_memory::{MemoryEngine, MemoryError, MemoryKind, MemoryRecord};
-use ally_models::{ChatRequest, ChatResponse, ModelBackend, ModelError, OllamaBackend, ToolSpec};
-use ally_planner::{Intent, Planner};
-use ally_plugins::{Plugin, PluginManager};
-use ally_security::{Permission, PermissionSet};
+use ally_events::EventBus;
+use ally_memory::{MemoryEngine, MemoryError};
+use ally_models::{ModelBackend, ModelError, OllamaBackend};
+use ally_planner::Planner;
+use ally_plugins::PluginManager;
+use ally_security::PermissionSet;
 use ally_storage::{SqliteStorage, Storage, StorageError};
 use ally_tools::{ToolError, ToolOrchestrator};
 use serde_json::Value;
 use std::sync::Arc;
 use thiserror::Error;
+
+// Re-exported so applications only ever need `use ally_sdk::{...}` and
+// never depend on a `runtime/*` crate directly — see the module doc above.
+pub use ally_context::ContextPackage;
+pub use ally_events::{Event, EventHandler, LoggingHandler};
+pub use ally_memory::{MemoryKind, MemoryRecord};
+pub use ally_models::{ChatMessage, ChatRequest, ChatResponse, ToolSpec};
+pub use ally_planner::{Intent, Plan};
+pub use ally_plugins::{Plugin, PluginError};
+pub use ally_security::Permission;
 
 /// Default local Ollama model used when an application doesn't configure
 /// one explicitly. `0.5b` reports tool-calling support but did not
@@ -26,23 +37,32 @@ const DEFAULT_MODEL: &str = "qwen2.5:1.5b";
 /// turn, so a model that keeps requesting tools can't loop forever.
 const MAX_TOOL_ROUNDS: usize = 4;
 
+/// Failure from [`Ally::chat`]: either the Model Runtime backend failed,
+/// or a tool it requested failed (including a denied permission).
 #[derive(Debug, Error)]
 pub enum ChatError {
+    /// The Model Runtime backend returned an error.
     #[error(transparent)]
     Model(#[from] ModelError),
+    /// A tool call the model requested failed to execute.
     #[error(transparent)]
     Tool(#[from] ToolError),
 }
 
+/// The single entry point applications use to talk to the Ally Runtime.
+/// Every Runtime module (Planner, Memory, Context, Tools, Plugins,
+/// Events, Permissions, Model) is reachable only through `Ally`'s methods
+/// — its fields are private so the Runtime's internals can change shape
+/// without breaking application code built against this crate.
 pub struct Ally {
-    pub planner: Planner,
-    pub memory: MemoryEngine,
-    pub context: ContextEngine,
-    pub tools: ToolOrchestrator,
-    pub plugins: PluginManager,
-    pub events: EventBus,
-    pub permissions: PermissionSet,
-    pub model: Arc<dyn ModelBackend>,
+    planner: Planner,
+    memory: MemoryEngine,
+    context: ContextEngine,
+    tools: ToolOrchestrator,
+    plugins: PluginManager,
+    events: EventBus,
+    permissions: PermissionSet,
+    model: Arc<dyn ModelBackend>,
 }
 
 impl Default for Ally {
@@ -103,7 +123,7 @@ impl Ally {
 
     /// Entry point for every user interaction: intent -> plan -> (future:
     /// memory retrieval, tool execution, context assembly, model call).
-    pub fn handle_intent(&self, intent: Intent) -> ally_planner::Plan {
+    pub fn handle_intent(&self, intent: Intent) -> Plan {
         self.planner.plan(&intent, &self.events)
     }
 
@@ -124,12 +144,30 @@ impl Ally {
 
     /// Installs a plugin: registers every tool it exposes with the Tool
     /// Orchestrator (so they become callable and visible to the model via
-    /// `tool_specs`), then emits `PluginInstalled`.
-    pub fn install_plugin(&mut self, plugin: Box<dyn Plugin>) {
+    /// `tool_specs`), then emits `PluginInstalled`. Fails if any tool the
+    /// plugin exposes requires a permission the plugin itself didn't
+    /// declare via `Plugin::permissions()`.
+    pub fn install_plugin(&mut self, plugin: Box<dyn Plugin>) -> Result<(), PluginError> {
         for tool in plugin.tools() {
             self.tools.register(tool);
         }
-        self.plugins.install(plugin, &self.events);
+        self.plugins.install(plugin, &self.events)
+    }
+
+    /// Names of every plugin installed so far, in installation order.
+    pub fn installed_plugins(&self) -> impl Iterator<Item = &str> {
+        self.plugins.installed()
+    }
+
+    /// Assembles a token-budgeted [`ContextPackage`] from a summary, the
+    /// recent conversation messages and previously recalled memories.
+    pub fn assemble_context(
+        &self,
+        summary: String,
+        recent_messages: Vec<String>,
+        memories: &[MemoryRecord],
+    ) -> ContextPackage {
+        self.context.assemble(summary, recent_messages, memories)
     }
 
     /// Executes a registered tool under the currently granted permissions,
@@ -167,7 +205,7 @@ impl Ally {
             rounds += 1;
             for call in &response.tool_calls {
                 let result = self.execute_tool(&call.name, call.arguments.clone()).await?;
-                request.messages.push(ally_models::ChatMessage::tool(result.to_string()));
+                request.messages.push(ChatMessage::tool(result.to_string()));
             }
             response = self.model.chat(request.clone()).await?;
         }

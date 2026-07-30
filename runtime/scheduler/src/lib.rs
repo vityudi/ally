@@ -21,6 +21,16 @@ impl Scheduler {
         self.tasks.push(task);
     }
 
+    /// Number of tasks currently queued, run or not.
+    pub fn len(&self) -> usize {
+        self.tasks.len()
+    }
+
+    /// Whether any task is currently queued.
+    pub fn is_empty(&self) -> bool {
+        self.tasks.is_empty()
+    }
+
     pub fn run_due(&self, events: &EventBus) {
         for task in &self.tasks {
             events.publish(Event::ReminderCreated {

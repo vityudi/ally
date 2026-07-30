@@ -7,7 +7,4 @@ description = "Ally CLI: local command-line interface to the Ally Runtime"
 
 [dependencies]
 ally-sdk.workspace = true
-ally-events.workspace = true
-ally-memory.workspace = true
-ally-planner.workspace = true
 tokio.workspace = true
