@@ -1,0 +1,160 @@
+{"id":"finance.schedule_payment-001","intent":"finance.schedule_payment","prompt":"I need to pay my credit card today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-002","intent":"finance.schedule_payment","prompt":"Remind me to pay the credit card today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-003","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my credit card due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-004","intent":"finance.schedule_payment","prompt":"Don't let me forget the credit card, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-005","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for credit card today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-006","intent":"finance.schedule_payment","prompt":"I need to pay my credit card tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-007","intent":"finance.schedule_payment","prompt":"Remind me to pay the credit card tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-008","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my credit card due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-009","intent":"finance.schedule_payment","prompt":"Don't let me forget the credit card, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-010","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for credit card tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-011","intent":"finance.schedule_payment","prompt":"I need to pay my credit card next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-012","intent":"finance.schedule_payment","prompt":"Remind me to pay the credit card next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-013","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my credit card due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-014","intent":"finance.schedule_payment","prompt":"Don't let me forget the credit card, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-015","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for credit card next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-016","intent":"finance.schedule_payment","prompt":"I need to pay my credit card in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-017","intent":"finance.schedule_payment","prompt":"Remind me to pay the credit card in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-018","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my credit card due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-019","intent":"finance.schedule_payment","prompt":"Don't let me forget the credit card, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-020","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for credit card in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-021","intent":"finance.schedule_payment","prompt":"I need to pay my credit card on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-022","intent":"finance.schedule_payment","prompt":"Remind me to pay the credit card on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-023","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my credit card due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-024","intent":"finance.schedule_payment","prompt":"Don't let me forget the credit card, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-025","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for credit card on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-026","intent":"finance.schedule_payment","prompt":"I need to pay my electricity bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-027","intent":"finance.schedule_payment","prompt":"Remind me to pay the electricity bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-028","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my electricity bill due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-029","intent":"finance.schedule_payment","prompt":"Don't let me forget the electricity bill, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-030","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for electricity bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-031","intent":"finance.schedule_payment","prompt":"I need to pay my electricity bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-032","intent":"finance.schedule_payment","prompt":"Remind me to pay the electricity bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-033","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my electricity bill due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-034","intent":"finance.schedule_payment","prompt":"Don't let me forget the electricity bill, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-035","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for electricity bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-036","intent":"finance.schedule_payment","prompt":"I need to pay my electricity bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-037","intent":"finance.schedule_payment","prompt":"Remind me to pay the electricity bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-038","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my electricity bill due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-039","intent":"finance.schedule_payment","prompt":"Don't let me forget the electricity bill, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-040","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for electricity bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-041","intent":"finance.schedule_payment","prompt":"I need to pay my electricity bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-042","intent":"finance.schedule_payment","prompt":"Remind me to pay the electricity bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-043","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my electricity bill due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-044","intent":"finance.schedule_payment","prompt":"Don't let me forget the electricity bill, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-045","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for electricity bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-046","intent":"finance.schedule_payment","prompt":"I need to pay my electricity bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-047","intent":"finance.schedule_payment","prompt":"Remind me to pay the electricity bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-048","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my electricity bill due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-049","intent":"finance.schedule_payment","prompt":"Don't let me forget the electricity bill, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-050","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for electricity bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-051","intent":"finance.schedule_payment","prompt":"I need to pay my rent today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-052","intent":"finance.schedule_payment","prompt":"Remind me to pay the rent today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-053","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my rent due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-054","intent":"finance.schedule_payment","prompt":"Don't let me forget the rent, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-055","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for rent today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-056","intent":"finance.schedule_payment","prompt":"I need to pay my rent tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-057","intent":"finance.schedule_payment","prompt":"Remind me to pay the rent tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-058","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my rent due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-059","intent":"finance.schedule_payment","prompt":"Don't let me forget the rent, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-060","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for rent tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-061","intent":"finance.schedule_payment","prompt":"I need to pay my rent next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-062","intent":"finance.schedule_payment","prompt":"Remind me to pay the rent next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-063","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my rent due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-064","intent":"finance.schedule_payment","prompt":"Don't let me forget the rent, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-065","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for rent next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-066","intent":"finance.schedule_payment","prompt":"I need to pay my rent in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-067","intent":"finance.schedule_payment","prompt":"Remind me to pay the rent in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-068","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my rent due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-069","intent":"finance.schedule_payment","prompt":"Don't let me forget the rent, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-070","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for rent in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-071","intent":"finance.schedule_payment","prompt":"I need to pay my rent on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-072","intent":"finance.schedule_payment","prompt":"Remind me to pay the rent on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-073","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my rent due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-074","intent":"finance.schedule_payment","prompt":"Don't let me forget the rent, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-075","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for rent on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-076","intent":"finance.schedule_payment","prompt":"I need to pay my phone bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-077","intent":"finance.schedule_payment","prompt":"Remind me to pay the phone bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-078","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my phone bill due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-079","intent":"finance.schedule_payment","prompt":"Don't let me forget the phone bill, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-080","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for phone bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-081","intent":"finance.schedule_payment","prompt":"I need to pay my phone bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-082","intent":"finance.schedule_payment","prompt":"Remind me to pay the phone bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-083","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my phone bill due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-084","intent":"finance.schedule_payment","prompt":"Don't let me forget the phone bill, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-085","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for phone bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-086","intent":"finance.schedule_payment","prompt":"I need to pay my phone bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-087","intent":"finance.schedule_payment","prompt":"Remind me to pay the phone bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-088","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my phone bill due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-089","intent":"finance.schedule_payment","prompt":"Don't let me forget the phone bill, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-090","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for phone bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-091","intent":"finance.schedule_payment","prompt":"I need to pay my phone bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-092","intent":"finance.schedule_payment","prompt":"Remind me to pay the phone bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-093","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my phone bill due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-094","intent":"finance.schedule_payment","prompt":"Don't let me forget the phone bill, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-095","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for phone bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-096","intent":"finance.schedule_payment","prompt":"I need to pay my phone bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-097","intent":"finance.schedule_payment","prompt":"Remind me to pay the phone bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-098","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my phone bill due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-099","intent":"finance.schedule_payment","prompt":"Don't let me forget the phone bill, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-100","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for phone bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-101","intent":"finance.schedule_payment","prompt":"I need to pay my internet bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-102","intent":"finance.schedule_payment","prompt":"Remind me to pay the internet bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-103","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my internet bill due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-104","intent":"finance.schedule_payment","prompt":"Don't let me forget the internet bill, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-105","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for internet bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-106","intent":"finance.schedule_payment","prompt":"I need to pay my internet bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-107","intent":"finance.schedule_payment","prompt":"Remind me to pay the internet bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-108","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my internet bill due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-109","intent":"finance.schedule_payment","prompt":"Don't let me forget the internet bill, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-110","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for internet bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-111","intent":"finance.schedule_payment","prompt":"I need to pay my internet bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-112","intent":"finance.schedule_payment","prompt":"Remind me to pay the internet bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-113","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my internet bill due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-114","intent":"finance.schedule_payment","prompt":"Don't let me forget the internet bill, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-115","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for internet bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-116","intent":"finance.schedule_payment","prompt":"I need to pay my internet bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-117","intent":"finance.schedule_payment","prompt":"Remind me to pay the internet bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-118","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my internet bill due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-119","intent":"finance.schedule_payment","prompt":"Don't let me forget the internet bill, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-120","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for internet bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-121","intent":"finance.schedule_payment","prompt":"I need to pay my internet bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-122","intent":"finance.schedule_payment","prompt":"Remind me to pay the internet bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-123","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my internet bill due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-124","intent":"finance.schedule_payment","prompt":"Don't let me forget the internet bill, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-125","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for internet bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-126","intent":"finance.schedule_payment","prompt":"I need to pay my water bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-127","intent":"finance.schedule_payment","prompt":"Remind me to pay the water bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-128","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my water bill due today?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-129","intent":"finance.schedule_payment","prompt":"Don't let me forget the water bill, it's due today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-130","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for water bill today.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-131","intent":"finance.schedule_payment","prompt":"I need to pay my water bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-132","intent":"finance.schedule_payment","prompt":"Remind me to pay the water bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-133","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my water bill due tomorrow?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-134","intent":"finance.schedule_payment","prompt":"Don't let me forget the water bill, it's due tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-135","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for water bill tomorrow.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-136","intent":"finance.schedule_payment","prompt":"I need to pay my water bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-137","intent":"finance.schedule_payment","prompt":"Remind me to pay the water bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-138","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my water bill due next Friday?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-139","intent":"finance.schedule_payment","prompt":"Don't let me forget the water bill, it's due next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-140","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for water bill next Friday.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-141","intent":"finance.schedule_payment","prompt":"I need to pay my water bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-142","intent":"finance.schedule_payment","prompt":"Remind me to pay the water bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-143","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my water bill due in 3 days?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-144","intent":"finance.schedule_payment","prompt":"Don't let me forget the water bill, it's due in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-145","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for water bill in 3 days.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-146","intent":"finance.schedule_payment","prompt":"I need to pay my water bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-147","intent":"finance.schedule_payment","prompt":"Remind me to pay the water bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-148","intent":"finance.schedule_payment","prompt":"Can you set up a reminder for my water bill due on the 5th?","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-149","intent":"finance.schedule_payment","prompt":"Don't let me forget the water bill, it's due on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"finance.schedule_payment-150","intent":"finance.schedule_payment","prompt":"Please schedule a payment reminder for water bill on the 5th.","expected_tool":"finance.create_reminder"}
+{"id":"none-001","intent":"none","prompt":"What's the weather like?","expected_tool":null}
+{"id":"none-002","intent":"none","prompt":"Tell me a joke.","expected_tool":null}
+{"id":"none-003","intent":"none","prompt":"What's 12 times 8?","expected_tool":null}
+{"id":"none-004","intent":"none","prompt":"Who wrote Romeo and Juliet?","expected_tool":null}
+{"id":"none-005","intent":"none","prompt":"What's the capital of Japan?","expected_tool":null}
+{"id":"none-006","intent":"none","prompt":"How do I boil an egg?","expected_tool":null}
+{"id":"none-007","intent":"none","prompt":"Recommend me a good book.","expected_tool":null}
+{"id":"none-008","intent":"none","prompt":"What time zone is Berlin in?","expected_tool":null}
+{"id":"none-009","intent":"none","prompt":"Translate 'good morning' to Spanish.","expected_tool":null}
+{"id":"none-010","intent":"none","prompt":"What's the tallest mountain in the world?","expected_tool":null}

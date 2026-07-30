@@ -335,6 +335,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
+name = "dataset-gen"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -350,6 +358,20 @@ name = "either"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5e8f6c15a24b9a3ee5efec809ccd006d3b30e8b3bb63c39af737c7f87daa1d"
+
+[[package]]
+name = "eval-harness"
+version = "0.1.0"
+dependencies = [
+ "ally-models",
+ "ally-plugin-finance",
+ "ally-scheduler",
+ "ally-sdk",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tokio",
+]
 
 [[package]]
 name = "fallible-iterator"

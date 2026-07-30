@@ -1,0 +1,17 @@
+[package]
+name = "eval-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Runs the synthetic planning/intent dataset through Ally::chat and compares tool-call accuracy and latency across Model Runtime backends"
+publish = false
+
+[dependencies]
+ally-sdk.workspace = true
+ally-models.workspace = true
+ally-scheduler.workspace = true
+ally-plugin-finance = { path = "../../plugins/finance" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+sysinfo.workspace = true

@@ -23,6 +23,8 @@ members = [
     "plugins/home",
     "examples/kyvo",
     "benchmarks/model-latency",
+    "benchmarks/eval-harness",
+    "tools/dataset-gen",
 ]
 
 [workspace.package]
