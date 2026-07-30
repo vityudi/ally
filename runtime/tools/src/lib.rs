@@ -1,6 +1,7 @@
 //! Tool Orchestrator: permission-aware execution of actions in the outside world.
 //! The Language Model never accesses these resources directly.
 
+use ally_events::{Event, EventBus};
 use ally_security::{Permission, PermissionSet};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -40,6 +41,7 @@ impl ToolOrchestrator {
         tool_name: &str,
         input: Value,
         granted: &PermissionSet,
+        events: &EventBus,
     ) -> Result<Value, ToolError> {
         let tool = self
             .tools
@@ -51,6 +53,10 @@ impl ToolOrchestrator {
             granted.require(permission)?;
         }
 
-        tool.execute(input).await
+        let result = tool.execute(input).await?;
+        events.publish(Event::ToolExecuted {
+            tool_name: tool_name.to_string(),
+        });
+        Ok(result)
     }
 }

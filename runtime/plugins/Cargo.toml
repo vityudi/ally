@@ -8,4 +8,5 @@ description = "Ally Runtime - Plugin Manager: discovery, permissions and lifecyc
 [dependencies]
 ally-tools.workspace = true
 ally-security.workspace = true
+ally-events.workspace = true
 thiserror.workspace = true

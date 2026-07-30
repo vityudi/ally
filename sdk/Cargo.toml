@@ -16,3 +16,4 @@ ally-events.workspace = true
 ally-storage.workspace = true
 ally-security.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true

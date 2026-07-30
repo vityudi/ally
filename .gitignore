@@ -4,6 +4,11 @@
 .vscode/
 *.log
 
+# Local SQLite databases (runtime state, not source)
+*.sqlite
+*.sqlite3
+*.db
+
 # Local model weights are data, not source
 /models/*
 !/models/README.md

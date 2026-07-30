@@ -11,25 +11,76 @@ pub struct ContextPackage {
     pub tool_results: Vec<String>,
 }
 
-#[derive(Default)]
-pub struct ContextEngine;
+/// Default token budget for an assembled [`ContextPackage`]. Deliberately
+/// conservative: this is a compact package handed to a small local model,
+/// not a full conversation transcript.
+const DEFAULT_MAX_TOKENS: usize = 2048;
+
+pub struct ContextEngine {
+    max_tokens: usize,
+}
+
+impl Default for ContextEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ContextEngine {
     pub fn new() -> Self {
-        Self
+        Self::with_budget(DEFAULT_MAX_TOKENS)
     }
 
+    pub fn with_budget(max_tokens: usize) -> Self {
+        Self { max_tokens }
+    }
+
+    /// Assembles a context package, keeping the conversation summary in
+    /// full and filling the remaining budget with recent messages first,
+    /// then relevant memories — dropping whatever no longer fits.
+    ///
+    /// Callers should already order `recent_messages` and `memories` by
+    /// priority (most important first): this only enforces the budget, it
+    /// does not re-rank.
     pub fn assemble(
         &self,
         conversation_summary: String,
         recent_messages: Vec<String>,
         memories: &[MemoryRecord],
     ) -> ContextPackage {
+        let mut budget = self
+            .max_tokens
+            .saturating_sub(approx_tokens(&conversation_summary));
+
+        let recent_messages = take_within_budget(recent_messages, &mut budget);
+        let memory_contents = memories.iter().map(|m| m.content.clone()).collect();
+        let relevant_memories = take_within_budget(memory_contents, &mut budget);
+
         ContextPackage {
             conversation_summary,
             recent_messages,
-            relevant_memories: memories.iter().map(|m| m.content.clone()).collect(),
+            relevant_memories,
             tool_results: Vec::new(),
         }
     }
+}
+
+/// Rough token estimate (~4 characters per token, a common approximation
+/// for English text). Replace with a real tokenizer once a Model Runtime
+/// backend exists (Phase 3) and can report exact counts per model.
+fn approx_tokens(text: &str) -> usize {
+    (text.len() / 4).max(1)
+}
+
+fn take_within_budget(items: Vec<String>, budget: &mut usize) -> Vec<String> {
+    let mut kept = Vec::new();
+    for item in items {
+        let cost = approx_tokens(&item);
+        if cost > *budget {
+            break;
+        }
+        *budget -= cost;
+        kept.push(item);
+    }
+    kept
 }

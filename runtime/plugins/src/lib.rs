@@ -1,6 +1,7 @@
 //! Plugin Manager: discovery, permission declaration and lifecycle of
 //! installable capabilities (finance, calendar, health, ...).
 
+use ally_events::{Event, EventBus};
 use ally_security::Permission;
 use ally_tools::Tool;
 
@@ -20,7 +21,10 @@ impl PluginManager {
         Self { plugins: Vec::new() }
     }
 
-    pub fn install(&mut self, plugin: Box<dyn Plugin>) {
+    pub fn install(&mut self, plugin: Box<dyn Plugin>, events: &EventBus) {
+        events.publish(Event::PluginInstalled {
+            plugin_name: plugin.name().to_string(),
+        });
         self.plugins.push(plugin);
     }
 

@@ -7,6 +7,7 @@ description = "Ally Runtime - Tool Orchestrator: permission-aware execution of e
 
 [dependencies]
 ally-security.workspace = true
+ally-events.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true

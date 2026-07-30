@@ -16,6 +16,17 @@ pub trait EventHandler: Send + Sync {
     fn handle(&self, event: &Event);
 }
 
+/// Prints every event to stdout. Useful during Phase 2 to observe the
+/// Runtime's internal event flow before a real subscriber (memory
+/// consolidation, scheduler, telemetry) exists.
+pub struct LoggingHandler;
+
+impl EventHandler for LoggingHandler {
+    fn handle(&self, event: &Event) {
+        println!("[event] {event:?}");
+    }
+}
+
 #[derive(Default)]
 pub struct EventBus {
     handlers: Vec<Box<dyn EventHandler>>,
