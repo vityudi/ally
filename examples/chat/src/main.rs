@@ -31,19 +31,17 @@ async fn main() {
     println!("ally-chat — installed plugins: {}", ally.installed_plugins().count());
     println!("Digite sua mensagem e aperte Enter. Digite 'sair' para encerrar.\n");
 
+    // Deliberately short: a stacked, multi-clause rulebook reliably makes
+    // qwen2.5:1.5b return a completely empty response (no text, no tool
+    // call) instead of partially following the rules — confirmed by
+    // bisecting the previous, longer prompt sentence by sentence. Small
+    // local models need a handful of essential rules, not a policy
+    // document; add more only after re-verifying tool calls still fire.
     let mut messages: Vec<ChatMessage> = vec![ChatMessage::system(
-        "You are Ally, a helpful personal assistant. Always reply in the same \
-         language the user's last message was written in (Portuguese or \
-         English) — never mix languages in one reply. Use a tool only when \
-         the user's request clearly maps to one of the tools you were given; \
-         otherwise just answer directly. If a tool call fails because a \
-         required field is missing, ask the user for that specific field \
-         instead of giving up. Never state a balance, budget or goal amount \
-         from memory — always call finance.get_balance or the relevant tool \
-         first. Currently your tools only cover personal finance (expenses, \
-         income, balance, budgets, goals, reminders) — for anything else, \
-         say plainly that you don't have a tool for that yet instead of \
-         pretending you handled it.",
+        "You are Ally, a personal assistant. Reply in the user's language \
+         (Portuguese or English). If a request already gives you everything \
+         a tool needs, call it now instead of asking to confirm. Never state \
+         a balance or amount from memory — always call the matching tool.",
     )];
 
     loop {

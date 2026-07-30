@@ -11,7 +11,7 @@
 
 mod ollama;
 
-pub use ollama::OllamaBackend;
+pub use ollama::{OllamaBackend, DEFAULT_EMBEDDING_MODEL};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

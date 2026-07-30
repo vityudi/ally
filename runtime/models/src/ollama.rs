@@ -11,23 +11,48 @@ use serde_json::Value;
 
 const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 
+/// Model used for `embed()` when a backend is constructed without an
+/// explicit embedding model. Ollama only serves `/api/embeddings` for
+/// models tagged with the `embedding` capability in its registry — chat
+/// models like `qwen2.5` are not usable for this even though they load
+/// fine for `chat`, so embeddings always need a separate, dedicated model.
+/// `all-minilm` is small (~45 MB) and local, matching the embedded-device
+/// friendliness called for in `docs/PRINCIPLES.md`.
+pub const DEFAULT_EMBEDDING_MODEL: &str = "all-minilm";
+
 pub struct OllamaBackend {
     http: reqwest::Client,
     base_url: String,
     model: String,
+    embedding_model: String,
 }
 
 impl OllamaBackend {
-    /// Connects to a local `ollama serve` instance on the default port.
+    /// Connects to a local `ollama serve` instance on the default port,
+    /// using `model` for chat and [`DEFAULT_EMBEDDING_MODEL`] for `embed`.
     pub fn new(model: impl Into<String>) -> Self {
         Self::with_base_url(DEFAULT_BASE_URL, model)
     }
 
     pub fn with_base_url(base_url: impl Into<String>, model: impl Into<String>) -> Self {
+        Self::with_embedding_model(base_url, model, DEFAULT_EMBEDDING_MODEL)
+    }
+
+    /// Same as [`OllamaBackend::with_base_url`], but lets the embedding
+    /// model be set explicitly instead of assuming [`DEFAULT_EMBEDDING_MODEL`]
+    /// is pulled. Use this if you've pulled a different embedding model
+    /// (e.g. `nomic-embed-text`) or want to point at one already in use
+    /// elsewhere.
+    pub fn with_embedding_model(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        embedding_model: impl Into<String>,
+    ) -> Self {
         Self {
             http: reqwest::Client::new(),
             base_url: base_url.into(),
             model: model.into(),
+            embedding_model: embedding_model.into(),
         }
     }
 
@@ -56,6 +81,26 @@ struct OllamaChatRequest<'a> {
     stream: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<OllamaTool<'a>>,
+    options: OllamaOptions,
+}
+
+/// Zero temperature (greedy decoding) for tool-calling reliability: with
+/// default sampling, whether a small model like `qwen2.5:1.5b` actually
+/// emits a tool call for the same message is highly non-deterministic —
+/// confirmed by running identical prompts repeatedly and getting a
+/// tool call maybe 1 time in 5. Greedy decoding won't fix a model that
+/// truly can't handle a request, but it removes sampling noise as a
+/// separate, compounding source of unreliability. Matches the "deterministic
+/// wherever possible" principle already stated for the Planner.
+#[derive(Serialize)]
+struct OllamaOptions {
+    temperature: f32,
+}
+
+impl Default for OllamaOptions {
+    fn default() -> Self {
+        Self { temperature: 0.0 }
+    }
 }
 
 #[derive(Deserialize)]
@@ -141,6 +186,7 @@ impl ModelBackend for OllamaBackend {
             messages: &request.messages,
             stream: false,
             tools: to_ollama_tools(&request.tools),
+            options: OllamaOptions::default(),
         };
 
         let response = self
@@ -172,6 +218,7 @@ impl ModelBackend for OllamaBackend {
             messages: &request.messages,
             stream: true,
             tools: to_ollama_tools(&request.tools),
+            options: OllamaOptions::default(),
         };
 
         let response = self
@@ -227,7 +274,7 @@ impl ModelBackend for OllamaBackend {
     }
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>, ModelError> {
-        let body = OllamaEmbedRequest { model: &self.model, prompt: text };
+        let body = OllamaEmbedRequest { model: &self.embedding_model, prompt: text };
 
         let response = self
             .http

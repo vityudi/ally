@@ -239,8 +239,21 @@ impl Ally {
             .collect()
     }
 
-    /// Sends a chat turn to the configured Model Runtime. Before calling
-    /// the model, this embeds the latest user message and retrieves the
+    /// Sends a chat turn to the configured Model Runtime.
+    ///
+    /// First, the latest user message is checked against every registered
+    /// tool's `trigger_phrases` (`ToolOrchestrator::match_trigger_phrase`).
+    /// A small local model's decision of *whether* to call a tool gets
+    /// markedly less reliable as a conversation grows multi-turn — even
+    /// though the tool itself works fine once actually called — so a
+    /// no-argument, read-only tool (e.g. "how much did I spend") is routed
+    /// to directly instead of leaving that decision to the model every
+    /// time. The model is still used, but only for one thing: phrasing the
+    /// tool's result naturally, never for deciding whether/which tool to
+    /// call. If no trigger phrase matches, this falls through to the
+    /// regular model-driven flow below.
+    ///
+    /// Otherwise, this embeds the latest user message and retrieves the
     /// most relevant memories (`recall_relevant`), then prepends a
     /// grounding system message instructing the model to answer only from
     /// those facts and admit it doesn't know rather than guess — see
@@ -254,6 +267,28 @@ impl Ally {
     /// `tool` message, and asks the model again — up to `MAX_TOOL_ROUNDS`
     /// times — before returning the final response.
     pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse, ChatError> {
+        if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
+            if let Some(tool) = self.tools.match_trigger_phrase(&query.content) {
+                let tool_name = tool.name().to_string();
+                let result = self.execute_tool(&tool_name, serde_json::json!({})).await?;
+
+                let phrasing_request = ChatRequest {
+                    messages: vec![
+                        ChatMessage::system(
+                            "Reply naturally, in the same language as the user's message, \
+                             using ONLY the data in the tool result below. Do not invent or \
+                             add any other numbers.",
+                        ),
+                        query.clone(),
+                        ChatMessage::tool(result.to_string()),
+                    ],
+                    tools: Vec::new(),
+                };
+                let response = self.model.chat(phrasing_request).await?;
+                return Ok(ChatResponse { message: response.message, tool_calls: Vec::new() });
+            }
+        }
+
         if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
             let query = query.content.clone();
             let query_embedding = self.model.embed(&query).await?;

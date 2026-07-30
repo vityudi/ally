@@ -10,9 +10,27 @@ use ally_scheduler::{ScheduledTask, Scheduler};
 use ally_security::Permission;
 use ally_tools::{Tool, ToolError};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+/// Parses an optional `YYYY-MM-DD` field, defaulting to today (the local
+/// system date) when absent. A small model asked to compute "today"
+/// itself is unreliable, so the server — not the model — is the source of
+/// truth for the current date; the model only needs to pass a date at all
+/// when explicitly backdating (e.g. logging a receipt from yesterday).
+fn optional_date(input: &Value, field: &str) -> Result<NaiveDate, ToolError> {
+    match input.get(field).and_then(Value::as_str).map(str::trim) {
+        None | Some("") => Ok(chrono::Local::now().date_naive()),
+        // A model asked for an ISO date sometimes tacks on a time
+        // component anyway (e.g. "2026-07-30T10:00"); only the date part
+        // before 'T' is ever meaningful here, so take that instead of
+        // rejecting an otherwise-valid date over a part we don't use.
+        Some(raw) => NaiveDate::parse_from_str(raw.split('T').next().unwrap_or(raw), "%Y-%m-%d")
+            .map_err(|_| ToolError::Execution(format!("'{field}' must be an ISO date (YYYY-MM-DD)"))),
+    }
+}
 
 fn required_str(input: &Value, field: &str) -> Result<String, ToolError> {
     input
@@ -44,6 +62,21 @@ fn positive_amount(input: &Value, field: &str) -> Result<f64, ToolError> {
     Ok(amount)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TransactionKind {
+    Expense,
+    Income,
+}
+
+#[derive(Debug, Clone)]
+struct Transaction {
+    kind: TransactionKind,
+    amount: f64,
+    category: Option<String>,
+    note: Option<String>,
+    date: NaiveDate,
+}
+
 #[derive(Debug, Clone)]
 struct Budget {
     limit: f64,
@@ -63,6 +96,7 @@ struct Goal {
 #[derive(Default)]
 struct Ledger {
     balance: f64,
+    transactions: Vec<Transaction>,
     budgets: HashMap<String, Budget>,
     goals: HashMap<String, Goal>,
 }
@@ -141,7 +175,8 @@ impl Tool for RegisterExpenseTool {
             "properties": {
                 "amount": { "type": "number", "description": "How much was spent, in the user's currency" },
                 "category": { "type": "string", "description": "Spending category, e.g. 'food' or 'transport'" },
-                "note": { "type": "string", "description": "Optional free-text description" }
+                "note": { "type": "string", "description": "Optional free-text description" },
+                "date": { "type": "string", "description": "Optional ISO date (YYYY-MM-DD) this was spent on; omit to use today" }
             },
             "required": ["amount", "category"]
         })
@@ -155,16 +190,24 @@ impl Tool for RegisterExpenseTool {
         let amount = positive_amount(&input, "amount")?;
         let category = required_str(&input, "category")?;
         let note = optional_str(&input, "note");
+        let date = optional_date(&input, "date")?;
 
         let balance = {
             let mut ledger = self.ledger.lock().expect("ledger mutex poisoned");
             ledger.balance -= amount;
+            ledger.transactions.push(Transaction {
+                kind: TransactionKind::Expense,
+                amount,
+                category: Some(category.clone()),
+                note: note.clone(),
+                date,
+            });
             ledger.balance
         };
 
         Ok(json!({
             "status": "registered", "kind": "expense",
-            "amount": amount, "category": category, "note": note, "balance": balance
+            "amount": amount, "category": category, "note": note, "date": date.to_string(), "balance": balance
         }))
     }
 }
@@ -189,7 +232,8 @@ impl Tool for RegisterIncomeTool {
             "type": "object",
             "properties": {
                 "amount": { "type": "number", "description": "How much was received, in the user's currency" },
-                "note": { "type": "string", "description": "Optional free-text description" }
+                "note": { "type": "string", "description": "Optional free-text description" },
+                "date": { "type": "string", "description": "Optional ISO date (YYYY-MM-DD) this was received on; omit to use today" }
             },
             "required": ["amount"]
         })
@@ -202,14 +246,25 @@ impl Tool for RegisterIncomeTool {
     async fn execute(&self, input: Value) -> Result<Value, ToolError> {
         let amount = positive_amount(&input, "amount")?;
         let note = optional_str(&input, "note");
+        let date = optional_date(&input, "date")?;
 
         let balance = {
             let mut ledger = self.ledger.lock().expect("ledger mutex poisoned");
             ledger.balance += amount;
+            ledger.transactions.push(Transaction {
+                kind: TransactionKind::Income,
+                amount,
+                category: None,
+                note: note.clone(),
+                date,
+            });
             ledger.balance
         };
 
-        Ok(json!({ "status": "registered", "kind": "income", "amount": amount, "note": note, "balance": balance }))
+        Ok(json!({
+            "status": "registered", "kind": "income",
+            "amount": amount, "note": note, "date": date.to_string(), "balance": balance
+        }))
     }
 }
 
@@ -240,6 +295,89 @@ impl Tool for GetBalanceTool {
     async fn execute(&self, _input: Value) -> Result<Value, ToolError> {
         let balance = self.ledger.lock().expect("ledger mutex poisoned").balance;
         Ok(json!({ "balance": balance }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec!["meu saldo", "qual e o meu saldo", "qual o meu saldo", "what's my balance", "what is my balance"]
+    }
+}
+
+/// Answers "how much did I spend [in a period]" with the actual recorded
+/// expense transactions, instead of the model estimating from
+/// conversation history. `finance.get_balance` mixes income and expenses
+/// into one running total and isn't scoped to a period, so this is the
+/// tool for period-scoped spending questions specifically.
+pub struct GetSpendingTool {
+    ledger: Arc<Mutex<Ledger>>,
+}
+
+#[async_trait]
+impl Tool for GetSpendingTool {
+    fn name(&self) -> &str {
+        "finance.get_spending"
+    }
+
+    fn description(&self) -> &str {
+        "Returns total money spent (expenses only, not income) between two dates, inclusive, \
+         plus the matching transactions. Defaults to today if no dates are given. Always call \
+         this for 'how much did I spend' questions instead of guessing from memory."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "from": { "type": "string", "description": "Optional ISO start date (YYYY-MM-DD), inclusive; defaults to today" },
+                "to": { "type": "string", "description": "Optional ISO end date (YYYY-MM-DD), inclusive; defaults to today" }
+            }
+        })
+    }
+
+    fn required_permissions(&self) -> Vec<Permission> {
+        vec![Permission::Read]
+    }
+
+    async fn execute(&self, input: Value) -> Result<Value, ToolError> {
+        let from = optional_date(&input, "from")?;
+        let to = optional_date(&input, "to")?;
+        if from > to {
+            return Err(ToolError::Execution("'from' must not be after 'to'".to_string()));
+        }
+
+        let ledger = self.ledger.lock().expect("ledger mutex poisoned");
+        let matching: Vec<&Transaction> = ledger
+            .transactions
+            .iter()
+            .filter(|t| t.kind == TransactionKind::Expense && t.date >= from && t.date <= to)
+            .collect();
+
+        let total: f64 = matching.iter().map(|t| t.amount).sum();
+        let transactions: Vec<Value> = matching
+            .iter()
+            .map(|t| {
+                json!({
+                    "amount": t.amount,
+                    "category": t.category,
+                    "note": t.note,
+                    "date": t.date.to_string(),
+                })
+            })
+            .collect();
+
+        Ok(json!({
+            "from": from.to_string(), "to": to.to_string(),
+            "total": total, "transactions": transactions
+        }))
+    }
+
+    fn trigger_phrases(&self) -> Vec<&str> {
+        vec![
+            "quanto gastei",
+            "quanto eu gastei",
+            "quanto gastou",
+            "how much did i spend",
+            "how much have i spent",
+        ]
     }
 }
 
@@ -444,6 +582,7 @@ impl ally_plugins::Plugin for FinancePlugin {
             Box::new(RegisterExpenseTool { ledger: self.ledger.clone() }),
             Box::new(RegisterIncomeTool { ledger: self.ledger.clone() }),
             Box::new(GetBalanceTool { ledger: self.ledger.clone() }),
+            Box::new(GetSpendingTool { ledger: self.ledger.clone() }),
             Box::new(CreateBudgetTool { ledger: self.ledger.clone() }),
             Box::new(CreateGoalTool { ledger: self.ledger.clone() }),
             Box::new(ListBudgetsTool { ledger: self.ledger.clone() }),
@@ -548,6 +687,85 @@ mod tests {
 
         let result = balance.execute(json!({})).await.expect("get_balance should succeed");
         assert_eq!(result["balance"], 53.0);
+    }
+
+    #[tokio::test]
+    async fn get_spending_defaults_to_today_and_ignores_income() {
+        let ledger = empty_ledger();
+        let expense = RegisterExpenseTool { ledger: ledger.clone() };
+        let income = RegisterIncomeTool { ledger: ledger.clone() };
+        let spending = GetSpendingTool { ledger: ledger.clone() };
+
+        expense
+            .execute(json!({ "amount": 78.0, "category": "market" }))
+            .await
+            .expect("expense should succeed");
+        income
+            .execute(json!({ "amount": 100.0 }))
+            .await
+            .expect("income should succeed");
+
+        let result = spending.execute(json!({})).await.expect("get_spending should succeed");
+        assert_eq!(result["total"], 78.0);
+        assert_eq!(result["transactions"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn get_spending_filters_by_explicit_date_range() {
+        let ledger = empty_ledger();
+        let expense = RegisterExpenseTool { ledger: ledger.clone() };
+        let spending = GetSpendingTool { ledger: ledger.clone() };
+
+        expense
+            .execute(json!({ "amount": 30.0, "category": "food", "date": "2026-01-01" }))
+            .await
+            .expect("expense should succeed");
+        expense
+            .execute(json!({ "amount": 20.0, "category": "food", "date": "2026-02-01" }))
+            .await
+            .expect("expense should succeed");
+
+        let result = spending
+            .execute(json!({ "from": "2026-01-01", "to": "2026-01-31" }))
+            .await
+            .expect("get_spending should succeed");
+        assert_eq!(result["total"], 30.0);
+    }
+
+    #[tokio::test]
+    async fn get_spending_rejects_from_after_to() {
+        let spending = GetSpendingTool { ledger: empty_ledger() };
+
+        let err = spending
+            .execute(json!({ "from": "2026-02-01", "to": "2026-01-01" }))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ToolError::Execution(_)));
+    }
+
+    #[tokio::test]
+    async fn register_expense_rejects_invalid_date() {
+        let expense = RegisterExpenseTool { ledger: empty_ledger() };
+
+        let err = expense
+            .execute(json!({ "amount": 10.0, "category": "food", "date": "not-a-date" }))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ToolError::Execution(_)));
+    }
+
+    #[tokio::test]
+    async fn register_expense_tolerates_a_time_component_on_the_date() {
+        let expense = RegisterExpenseTool { ledger: empty_ledger() };
+
+        let result = expense
+            .execute(json!({ "amount": 10.0, "category": "food", "date": "2026-07-30T10:00:00" }))
+            .await
+            .expect("execute should succeed");
+
+        assert_eq!(result["date"], "2026-07-30");
     }
 
     #[tokio::test]
