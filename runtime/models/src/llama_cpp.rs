@@ -64,6 +64,18 @@ const DEFAULT_CONTEXT_SIZE: u32 = 4096;
 /// that never emits EOS can't hang the caller forever.
 const MAX_NEW_TOKENS: usize = 1024;
 
+/// How many of the most recent tokens the repetition penalty looks back
+/// over. Covers a few sentences' worth without reaching all the way back
+/// into the system prompt/grounding block, where repeated words (e.g. the
+/// same tool names listed as facts) are expected, not a decoding loop.
+const REPEAT_PENALTY_LAST_N: i32 = 256;
+
+/// >1.0 down-weights tokens already seen within `REPEAT_PENALTY_LAST_N`.
+/// 1.3 is llama.cpp's own long-standing default for this parameter —
+/// strong enough to break degenerate loops, mild enough not to visibly
+/// distort normal short answers.
+const REPEAT_PENALTY: f32 = 1.3;
+
 fn backend() -> &'static LlamaBackend {
     static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
     BACKEND.get_or_init(|| {
@@ -438,7 +450,19 @@ fn generate(
         ctx.decode(&mut batch)
             .map_err(|e| ModelError::Backend(format!("decode failed: {e}")))?;
 
-        let mut sampler = LlamaSampler::greedy();
+        // Pure greedy decoding has no mechanism to escape a low-probability
+        // loop once it enters one — observed live: qwen2.5:1.5b answering
+        // "what else can you do" degenerated into repeating the same list
+        // of capabilities dozens of times until MAX_NEW_TOKENS cut it off.
+        // Chaining a repetition penalty ahead of the greedy pick fixes this
+        // at the decoding layer (a token that already appeared recently
+        // gets down-weighted before argmax runs) without reintroducing
+        // temperature/top-k sampling noise, which is what greedy was
+        // chosen for in the first place (see the doc comment above).
+        let mut sampler = LlamaSampler::chain_simple([
+            LlamaSampler::penalties(REPEAT_PENALTY_LAST_N, REPEAT_PENALTY, 0.0, 0.0),
+            LlamaSampler::greedy(),
+        ]);
         let mut decoder = encoding_rs::UTF_8.new_decoder();
         let mut n_cur = batch.n_tokens();
         let mut content = String::new();

@@ -64,7 +64,58 @@ const IDENTITY_GUARDRAIL: &str = "You are the assistant; the person you're \
     talking to is a separate individual, not you. Never assume their name, \
     identity or other facts about them unless stated as a fact below or \
     earlier in this conversation — if you don't know, say so instead of \
-    guessing.";
+    guessing. You do have long-term memory of facts the user shares with \
+    you; if none are listed below it only means none have been shared yet \
+    — invite them to tell you something instead of claiming you're unable \
+    to remember at all.";
+
+/// Substrings that mark a message as asking whether/what Ally remembers
+/// about the user (pt-BR and English). Matched the same way as
+/// `ToolOrchestrator::match_trigger_phrase` — case-insensitive substring —
+/// and for the same reason: whether a small local model *decides* to trust
+/// its own memory, versus denying it has any, is exactly as unreliable as
+/// its tool-call decisions (see `Ally::chat` doc). Observed live:
+/// qwen2.5:1.5b denied having memory on a "lembra de mim?" turn even with
+/// the correct fact already grounded in the system message, because its
+/// own prior "não tenho memória" reply earlier in the same conversation
+/// outweighed the instruction. Routing this deterministically, with an
+/// isolated request that carries no prior turns, sidesteps that anchoring
+/// entirely instead of trying to out-word it.
+const RECALL_TRIGGER_PHRASES: &[&str] = &[
+    "lembra de mim",
+    "voce lembra",
+    "você lembra",
+    "o que sabe sobre mim",
+    "o que voce sabe sobre mim",
+    "o que você sabe sobre mim",
+    "quem sou eu",
+    "tem memoria",
+    "tem memória",
+    "meu nome",
+    "me chamo",
+    "remember me",
+    "do you remember",
+    "what do you know about me",
+    "who am i",
+    "my name",
+];
+
+/// Whether `message` asks Ally to recall/state what it knows about the
+/// user. See [`RECALL_TRIGGER_PHRASES`]. Requires a trailing `?` in
+/// addition to the phrase match: some trigger phrases ("meu nome", "me
+/// chamo") are ambiguous between a question ("como é meu nome?") and a
+/// disclosure ("meu nome é Yudi") — the recall path only ever reads, never
+/// stores, so routing a disclosure into it silently drops the fact
+/// instead of remembering it. A trailing `?` is the same cheap, reliable
+/// question/statement discriminator already used by
+/// `extract_personal_fact`'s guard below.
+fn is_recall_query(message: &str) -> bool {
+    if !message.trim().ends_with('?') {
+        return false;
+    }
+    let message = message.to_lowercase();
+    RECALL_TRIGGER_PHRASES.iter().any(|phrase| message.contains(phrase))
+}
 
 /// Failure from [`Ally::chat`]: either the Model Runtime backend failed,
 /// or a tool it requested failed (including a denied permission).
@@ -351,6 +402,41 @@ impl Ally {
         }
 
         if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
+            if is_recall_query(&query.content) {
+                let query = query.content.clone();
+                let query_embedding = self.model.embed(&query).await?;
+                let grounded = self.retriever.retrieve(&query_embedding).await?;
+
+                let mut system_content = if grounded.is_empty() {
+                    "The user asked whether/what you remember about them, but no facts \
+                     about them are stored yet. Reply, in the same language as the user's \
+                     message, that you don't have anything saved about them yet and invite \
+                     them to share something. Never say you are unable to have memory — you \
+                     do, it's just empty so far."
+                        .to_string()
+                } else {
+                    "The user asked whether/what you remember about them. Reply, in the \
+                     same language as the user's message, using ONLY the facts below. Do \
+                     not invent or add any other facts, and do not claim you lack memory — \
+                     state what you know."
+                        .to_string()
+                };
+                let memory_ids: Vec<String> = grounded.iter().map(|g| g.id.clone()).collect();
+                for memory in &grounded {
+                    system_content.push_str(&format!("\n- {}", memory.content));
+                }
+
+                let phrasing_request = ChatRequest {
+                    messages: vec![ChatMessage::system(system_content), ChatMessage::user(query.clone())],
+                    tools: Vec::new(),
+                };
+                let response = self.model.chat(phrasing_request).await?;
+                if !memory_ids.is_empty() {
+                    self.events.publish(Event::MemoryRetrieved { memory_ids, query });
+                }
+                return Ok(ChatResponse { message: response.message, tool_calls: Vec::new() });
+            }
+
             let query = query.content.clone();
             let query_embedding = self.model.embed(&query).await?;
             let grounded = self.retriever.retrieve(&query_embedding).await?;
@@ -424,21 +510,30 @@ impl Ally {
             response = self.model.chat(request.clone()).await?;
         }
 
-        if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
-            if let Some(fact) = self.extract_personal_fact(&query.content).await {
-                let id = format!(
-                    "fact-{}",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .expect("system clock is before UNIX epoch")
-                        .as_nanos()
-                );
-                // Best-effort: a failure to persist a remembered fact
-                // shouldn't fail the whole turn — the user still gets
-                // `response` back either way.
-                let _ = self
-                    .remember(MemoryRecord { id, kind: MemoryKind::Semantic, content: fact, embedding: None })
-                    .await;
+        // A turn where the model itself decided to call a tool (`rounds >
+        // 0`) is a command/query about an action ("consulte meus gastos"),
+        // not a personal disclosure — observed live producing a
+        // hallucinated "fact" out of a plain data query. The deterministic
+        // trigger-phrase shortcut above already never reaches this code at
+        // all (it returns early), so this only needs to guard the
+        // model-decided path.
+        if rounds == 0 {
+            if let Some(query) = request.messages.iter().rev().find(|m| m.role == "user") {
+                if let Some(fact) = self.extract_personal_fact(&query.content).await {
+                    let id = format!(
+                        "fact-{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .expect("system clock is before UNIX epoch")
+                            .as_nanos()
+                    );
+                    // Best-effort: a failure to persist a remembered fact
+                    // shouldn't fail the whole turn — the user still gets
+                    // `response` back either way.
+                    let _ = self
+                        .remember(MemoryRecord { id, kind: MemoryKind::Semantic, content: fact, embedding: None })
+                        .await;
+                }
             }
         }
 
@@ -466,14 +561,77 @@ impl Ally {
             return None;
         }
 
+        // Second deterministic guard: a message asserting something *about
+        // the assistant* ("você tem memoria sim") is not a fact about the
+        // user, but the original prompt below didn't say that explicitly
+        // and the extractor happily "extracted" one anyway — polluting
+        // memory with a garbage record that then got retrieved as if it
+        // were grounding. Filtering out second-person-at-the-assistant
+        // phrasing before the model ever sees it is cheaper and more
+        // reliable than trusting a 1.5B model's third-person disambiguation
+        // (the same class of confusion IDENTITY_GUARDRAIL exists to guard
+        // against in the main chat flow).
+        const ASSISTANT_DIRECTED_MARKERS: &[&str] = &[
+            "voce tem", "você tem", "voce e ", "você é ", "voce sabe", "você sabe",
+            "voce consegue", "você consegue", "voce faz", "você faz", "voce lembra",
+            "você lembra", "you have", "you are", "you know", "you can", "you remember",
+        ];
+        let lower = message.trim().to_lowercase();
+        if ASSISTANT_DIRECTED_MARKERS.iter().any(|marker| lower.starts_with(marker)) {
+            return None;
+        }
+
+        // Third deterministic guard: a bare greeting states nothing about
+        // the user, but was observed live producing a hallucinated "fact"
+        // from "oi ally" alone. Matched as a whole-message check (not
+        // `contains`) so a greeting folded into a real disclosure — "oi,
+        // meu nome é Yudi" — still reaches the model instead of being
+        // skipped.
+        const GREETINGS: &[&str] = &[
+            "oi", "oi ally", "ola", "olá", "ola ally", "olá ally", "e ai", "eae", "eai",
+            "hello", "hi", "hey", "hi ally", "hey ally", "hello ally",
+        ];
+        let normalized = lower.trim_end_matches(['!', '.', ',']).trim();
+        if GREETINGS.contains(&normalized) {
+            return None;
+        }
+
+        // Fourth deterministic guard: an imperative command directed at the
+        // assistant ("consulte meus gastos") is not a personal disclosure
+        // even though it contains "meus" — observed live producing a
+        // hallucinated fact when the message didn't also match a tool
+        // trigger phrase (the `rounds == 0` guard in `chat` only covers the
+        // case where a tool actually ran). Checked as the first word so a
+        // real disclosure that happens to start similarly isn't caught —
+        // none of these verbs are ever how a Portuguese/English sentence
+        // starts when stating a fact about oneself.
+        const IMPERATIVE_STARTS: &[&str] = &[
+            "consulte", "registre", "cadastre", "diga", "diz", "mostra", "mostre", "liste",
+            "lista", "calcule", "crie", "cria", "delete", "deleta", "apague", "apaga",
+            "cancele", "cancela", "recupere", "recupera", "busque", "busca", "verifique",
+            "verifica", "confira", "confere", "tell", "show", "list", "calculate", "create",
+            "delete", "cancel", "check", "find",
+        ];
+        if IMPERATIVE_STARTS.iter().any(|verb| {
+            lower == *verb || lower.starts_with(&format!("{verb} "))
+        }) {
+            return None;
+        }
+
         let extraction_request = ChatRequest {
             messages: vec![
                 ChatMessage::system(
                     "The user said this to a personal assistant. If it STATES a durable \
-                     personal fact about them (name, preference, where they live, a \
-                     restriction, etc.), reply with that fact as one short third-person \
-                     sentence, in the SAME language the user wrote in. If it's a question, \
-                     a command, or doesn't state a new fact, reply with exactly: none",
+                     personal fact about the USER THEMSELVES (their own name, preference, \
+                     where they live, a restriction, something they own or did — first- \
+                     person disclosure), reply with that fact as one short third-person \
+                     sentence. Write that sentence in WHICHEVER LANGUAGE THE USER'S MESSAGE \
+                     IS IN — copy its language exactly, never translate to English (example: \
+                     input \"meu nome é Ana\" -> output \"Ana é o nome do usuário.\", NOT \
+                     English). Claims, opinions or instructions ABOUT THE ASSISTANT (e.g. \
+                     \"you do have memory\", \"you're wrong\") are NOT facts about the user — \
+                     reply exactly: none. If it's a question, a command, or doesn't state a \
+                     new fact about the user, also reply with exactly: none",
                 ),
                 ChatMessage::user(message),
             ],

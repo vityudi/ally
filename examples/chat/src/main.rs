@@ -19,15 +19,27 @@
 //!
 //! Run with: `cargo run -p ally-chat`
 //! Type `sair` / `exit` / `quit` to leave.
+//!
+//! Memory persists across runs by default, in `ally-chat.sqlite3` in the
+//! current directory. Pass `--reset` (or delete the file yourself) to start
+//! from a throwaway in-memory store instead, wiping everything remembered
+//! so far for that run only — the file on disk is left untouched.
 
 use ally_scheduler::Scheduler;
 use ally_sdk::{Ally, ChatMessage, ChatRequest, LoggingHandler, Permission};
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
+const STORAGE_PATH: &str = "ally-chat.sqlite3";
+
 #[tokio::main]
 async fn main() {
-    let mut ally = Ally::new();
+    let reset = std::env::args().any(|a| a == "--reset");
+    let mut ally = if reset {
+        Ally::new()
+    } else {
+        Ally::open(STORAGE_PATH).expect("failed to open local storage")
+    };
     ally.on_event(Box::new(LoggingHandler));
     ally.grant_permissions(vec![Permission::Read, Permission::Write]);
 
@@ -37,6 +49,10 @@ async fn main() {
         .expect("finance plugin should install cleanly");
 
     println!("ally-chat — installed plugins: {}", ally.installed_plugins().count());
+    println!(
+        "memoria: {}",
+        if reset { "temporaria (--reset)".to_string() } else { format!("persistente ({STORAGE_PATH})") }
+    );
     println!("modelo: {}", ally.model_id());
     println!("Digite sua mensagem e aperte Enter. Digite 'sair' para encerrar.\n");
 
